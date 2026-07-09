@@ -1,0 +1,98 @@
+@font-face {
+  font-family: "Lahzeh";
+  src: url("../assets/fonts/Lahzeh-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lahzeh";
+  src: url("../assets/fonts/Lahzeh-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lahzeh";
+  src: url("../assets/fonts/Lahzeh-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --color-canvas: #0a0b09;
+  --color-canvas-elevated: #10120f;
+  --color-surface-black: #000000;
+  --color-surface-primary: #171916;
+  --color-surface-secondary: #232521;
+  --color-surface-tertiary: #2d2f2b;
+  --color-primary: #d0ff4f;
+  --color-primary-pressed: #bce83f;
+  --color-primary-muted: rgba(208, 255, 79, 0.14);
+  --color-on-primary: #090a08;
+  --color-text-primary: #f6f7f2;
+  --color-text-secondary: #a5a99f;
+  --color-text-tertiary: #72766e;
+  --color-text-disabled: rgba(246, 247, 242, 0.35);
+  --color-border-soft: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(255, 255, 255, 0.13);
+  --color-border-focus: rgba(208, 255, 79, 0.65);
+  --color-glass-soft: rgba(255, 255, 255, 0.06);
+  --color-glass-strong: rgba(22, 24, 21, 0.88);
+  --color-ambient-brown: #67442f;
+  --color-ambient-olive: #59663a;
+  --color-ambient-green: #758d3f;
+  --color-warning: #ffc95b;
+  --color-error: #ff6b61;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --page-x: 20px;
+
+  --radius-2: 10px;
+  --radius-3: 14px;
+  --radius-4: 18px;
+  --radius-6: 24px;
+  --radius-8: 30px;
+  --radius-9: 36px;
+  --radius-pill: 999px;
+
+  --font-sans: "Lahzeh", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
+    system-ui, sans-serif;
+  --display-size: 40px;
+  --display-line: 44px;
+  --h1-size: 32px;
+  --h1-line: 37px;
+  --h2-size: 24px;
+  --h2-line: 29px;
+  --title-size: 18px;
+  --title-line: 24px;
+  --body-size: 15px;
+  --body-line: 22px;
+  --label-size: 14px;
+  --label-line: 19px;
+  --caption-size: 12px;
+  --caption-line: 16px;
+
+  --nav-height: 72px;
+  --nav-offset: 16px;
+  --bottom-safe: env(safe-area-inset-bottom, 0px);
+  --top-safe: env(safe-area-inset-top, 0px);
+  --transition-fast: 140ms ease;
+  --transition-normal: 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[lang="en"] {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
+    system-ui, sans-serif;
+}
