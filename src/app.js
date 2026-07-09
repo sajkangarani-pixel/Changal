@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260709-admin5";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-json1";
 import {
   AppShell,
   EmptyState,
@@ -7,21 +7,21 @@ import {
   RandomGameResult,
   RandomGameSetup,
   TopAppBar
-} from "./components/components.js?v=20260709-admin5";
-import { AdminRouteScreen } from "./components/admin.js?v=20260709-admin5";
+} from "./components/components.js?v=20260710-json1";
+import { AdminRouteScreen } from "./components/admin.js?v=20260710-json1";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260709-admin5";
+} from "./components/screens.js?v=20260710-json1";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260709-admin5";
+} from "./services/filtering.js?v=20260710-json1";
 import {
   getLastFilters,
   getPreferences,
@@ -29,16 +29,18 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260709-admin5";
+} from "./services/storage.js?v=20260710-json1";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260709-admin5";
+} from "./services/i18n.js?v=20260710-json1";
 import {
+  assignImportedFiltersToGame,
   checkAdminAccess,
+  createGameImportDraft,
   deleteGame,
   duplicatePayload,
   emptyGameForm,
@@ -53,13 +55,14 @@ import {
   nextSortOrder,
   onAuthChanged,
   payloadFromForm,
+  sampleGameImportJson,
   saveGame,
   slugify,
   updateGameField,
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260709-admin5";
+} from "./services/gamesApi.js?v=20260710-json1";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -144,6 +147,7 @@ const state = {
       status: "",
       error: ""
     },
+    jsonImport: emptyAdminJsonImportState(),
     logoutLoading: false
   }
 };
@@ -204,8 +208,12 @@ app.addEventListener("click", async (event) => {
   const scope = actionTarget.dataset.scope;
   const value = actionTarget.dataset.value;
   const key = actionTarget.dataset.key;
+  const isFileInputAction = actionTarget instanceof HTMLInputElement && actionTarget.type === "file";
 
-  if (["toggle-save", "select-requirement", "toggle-quick-filter"].includes(action) || action.startsWith("admin-")) {
+  if (
+    ["toggle-save", "select-requirement", "toggle-quick-filter"].includes(action) ||
+    (action.startsWith("admin-") && !isFileInputAction)
+  ) {
     event.preventDefault();
   }
 
@@ -304,6 +312,21 @@ app.addEventListener("click", async (event) => {
     case "admin-refresh-games":
       loadAdminGames();
       break;
+    case "admin-open-import-json":
+      openAdminJsonImport();
+      break;
+    case "admin-close-import-json":
+      closeAdminJsonImport();
+      break;
+    case "admin-download-sample-json":
+      downloadAdminImportSample();
+      break;
+    case "admin-load-import-form":
+      loadAdminImportIntoForm();
+      break;
+    case "admin-save-imported-game":
+      handleAdminImportSave();
+      break;
     case "admin-new-game":
       openAdminForm();
       break;
@@ -397,6 +420,10 @@ app.addEventListener("input", (event) => {
     updateAdminFormField(target.dataset.field, target.value, target);
   }
 
+  if (target.dataset.action === "admin-import-field") {
+    updateAdminImportField(target.dataset.field, target.value, target);
+  }
+
   if (target.dataset.action === "admin-list-field") {
     updateAdminListField(target.dataset.list, Number(target.dataset.index), target.value);
   }
@@ -443,6 +470,14 @@ app.addEventListener("change", (event) => {
 
   if (target.dataset.action === "admin-form-field") {
     updateAdminFormField(target.dataset.field, target.type === "checkbox" ? target.checked : target.value, target);
+  }
+
+  if (target.dataset.action === "admin-import-field") {
+    updateAdminImportField(target.dataset.field, target.type === "checkbox" ? target.checked : target.value, target);
+  }
+
+  if (target.dataset.action === "admin-import-json-file") {
+    handleAdminImportFile(target.files?.[0] || null);
   }
 
   if (target.dataset.action === "admin-image-file") {
@@ -504,7 +539,9 @@ function render() {
   document.body.dataset.language = adminRoute ? "en" : language;
   document.body.classList.toggle(
     "no-scroll",
-    !adminRoute && (state.filterSheet.open || state.random.openSetup || Boolean(state.random.result))
+    adminRoute
+      ? Boolean(state.admin.jsonImport.open)
+      : state.filterSheet.open || state.random.openSetup || Boolean(state.random.result)
   );
   restoreFocus(focusState);
   syncTopBar();
@@ -1017,6 +1054,225 @@ async function handleAdminImageUpload() {
     state.admin.upload.loading = false;
     render();
   }
+}
+
+function openAdminJsonImport() {
+  state.admin.jsonImport = emptyAdminJsonImportState({ open: true });
+  render();
+}
+
+function closeAdminJsonImport() {
+  if (state.admin.jsonImport.saving) return;
+  state.admin.jsonImport = emptyAdminJsonImportState();
+  render();
+}
+
+async function handleAdminImportFile(file) {
+  if (!file) return;
+
+  state.admin.jsonImport = emptyAdminJsonImportState({
+    open: true,
+    fileName: file.name || "game.json",
+    status: "Reading JSON file..."
+  });
+  render();
+
+  try {
+    if (!isJsonFile(file)) {
+      throw new Error("Choose a .json file.");
+    }
+
+    const raw = await readFileAsText(file);
+    const parsed = JSON.parse(raw);
+    const draft = createGameImportDraft(parsed);
+
+    if (draft.error) {
+      throw new Error(draft.error);
+    }
+
+    const formErrors = validateGameForm(draft.form);
+    state.admin.jsonImport = {
+      ...state.admin.jsonImport,
+      raw,
+      form: draft.form,
+      filters: draft.filters,
+      warnings: draft.warnings,
+      formErrors,
+      status: Object.keys(formErrors).length
+        ? "JSON loaded. Fix validation errors before saving."
+        : "JSON loaded. Review the preview before saving.",
+      error: ""
+    };
+  } catch (error) {
+    state.admin.jsonImport = {
+      ...state.admin.jsonImport,
+      form: null,
+      filters: [],
+      warnings: [],
+      formErrors: {},
+      status: "",
+      error: error.message || "Could not import this JSON file."
+    };
+  }
+
+  render();
+}
+
+function updateAdminImportField(field, value, target) {
+  if (!field || !state.admin.jsonImport.form) return;
+  const form = { ...state.admin.jsonImport.form };
+
+  if (target?.type === "checkbox") {
+    form[field] = Boolean(value);
+  } else if (field === "slug") {
+    form.slug = slugify(value);
+  } else {
+    form[field] = value;
+  }
+
+  state.admin.jsonImport.form = form;
+  state.admin.jsonImport.formErrors = validateGameForm(form);
+  state.admin.jsonImport.status = Object.keys(state.admin.jsonImport.formErrors).length
+    ? "Fix validation errors before saving."
+    : "Ready to save.";
+  state.admin.jsonImport.error = "";
+  render();
+}
+
+function loadAdminImportIntoForm() {
+  const importer = state.admin.jsonImport;
+  if (!importer.form) return;
+  if (state.admin.formDirty && !window.confirm("Discard unsaved game changes?")) return;
+
+  const formErrors = validateGameForm(importer.form);
+  state.admin.editingId = "";
+  state.admin.form = cloneGameForm(importer.form);
+  state.admin.formErrors = formErrors;
+  state.admin.saveStatus = Object.keys(formErrors).length
+    ? "Imported JSON loaded. Fix validation errors before saving."
+    : "Imported JSON loaded. Review and save.";
+  state.admin.upload = { file: null, loading: false, status: "", error: "" };
+  state.admin.formDirty = true;
+  state.admin.slugTouched = Boolean(state.admin.form.slug);
+  state.admin.view = "form";
+  state.admin.jsonImport = emptyAdminJsonImportState();
+  render();
+}
+
+async function handleAdminImportSave() {
+  const importer = state.admin.jsonImport;
+  if (!importer.form || importer.saving) return;
+
+  const formErrors = validateGameForm(importer.form);
+  state.admin.jsonImport.formErrors = formErrors;
+  if (Object.keys(formErrors).length) {
+    state.admin.jsonImport.status = "Fix validation errors before saving.";
+    render();
+    return;
+  }
+
+  state.admin.jsonImport.saving = true;
+  state.admin.jsonImport.status = "Saving imported game...";
+  state.admin.jsonImport.error = "";
+  render();
+
+  let toastMessage = "";
+
+  try {
+    const slugAvailable = await isSlugUnique(importer.form.slug.trim());
+    if (!slugAvailable) {
+      state.admin.jsonImport.formErrors = {
+        ...state.admin.jsonImport.formErrors,
+        slug: "Slug is already used by another game."
+      };
+      state.admin.jsonImport.status = "Fix validation errors before saving.";
+      return;
+    }
+
+    const saved = await saveGame(payloadFromForm(importer.form));
+    const filterResult = await assignImportedFiltersToGame(saved.id, importer.filters);
+    await loadAdminGames({ silent: true });
+    await refreshPublicGames({ silent: true });
+    state.admin.view = "list";
+    state.admin.jsonImport = emptyAdminJsonImportState();
+
+    const filterMessage = summarizeFilterImportResult(filterResult);
+    toastMessage = filterMessage ? `Imported game saved. ${filterMessage}` : "Imported game saved.";
+  } catch (error) {
+    state.admin.jsonImport.error = error.message || "Could not save imported game.";
+  } finally {
+    state.admin.jsonImport.saving = false;
+    render();
+    if (toastMessage) showToast(toastMessage);
+  }
+}
+
+function downloadAdminImportSample() {
+  const blob = new Blob([sampleGameImportJson()], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "changal-game-import-sample.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function emptyAdminJsonImportState(patch = {}) {
+  return {
+    open: false,
+    fileName: "",
+    raw: "",
+    form: null,
+    filters: [],
+    warnings: [],
+    formErrors: {},
+    saving: false,
+    status: "",
+    error: "",
+    ...patch
+  };
+}
+
+function isJsonFile(file) {
+  if (!file) return false;
+  const name = String(file.name || "").toLowerCase();
+  return name.endsWith(".json") || file.type === "application/json" || file.type === "text/json";
+}
+
+async function readFileAsText(file) {
+  if (typeof file.text === "function") return file.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")));
+    reader.addEventListener("error", () => reject(new Error("Could not read this file.")));
+    reader.readAsText(file);
+  });
+}
+
+function cloneGameForm(form) {
+  return {
+    ...form,
+    equipment: [...(form.equipment || [])],
+    tags: [...(form.tags || [])],
+    game_type: [...(form.game_type || [])],
+    steps: (form.steps || []).map((step) => ({ ...step })),
+    rules: [...(form.rules || [])],
+    tips: [...(form.tips || [])],
+    suitable_for: [...(form.suitable_for || [])],
+    not_suitable_for: [...(form.not_suitable_for || [])]
+  };
+}
+
+function summarizeFilterImportResult(result) {
+  if (!result) return "";
+  if (result.error) return "Filter assignment was skipped; create matching filters and assign them manually.";
+  if (result.missing?.length) {
+    return "Some filters do not exist yet. Create them in the Filters section, then assign them manually.";
+  }
+  if (result.assigned) return `${result.assigned} filter assignment${result.assigned === 1 ? "" : "s"} added.`;
+  return "";
 }
 
 function updateAdminFilter(field, value) {

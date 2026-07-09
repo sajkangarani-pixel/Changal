@@ -1,4 +1,4 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260709-admin5";
+import { GAME_TYPES } from "../data/constants.js?v=20260710-json1";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
@@ -6,9 +6,9 @@ import {
   emptyGameForm,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260709-admin5";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260709-admin5";
-import { icon } from "./icons.js?v=20260709-admin5";
+} from "../services/gamesApi.js?v=20260710-json1";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-json1";
+import { icon } from "./icons.js?v=20260710-json1";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {
@@ -105,6 +105,7 @@ export function AdminPanel(admin) {
         ${Dashboard(admin)}
         ${GameManagement(admin, categories)}
       `;
+  const importModal = admin.jsonImport?.open ? ImportJsonModal(admin.jsonImport) : "";
 
   return AdminShell({
     title: admin.view === "form" ? (admin.editingId ? "Edit game" : "Add game") : "Admin panel",
@@ -113,7 +114,7 @@ export function AdminPanel(admin) {
       <a class="secondary-button admin-small-action" href="#/">${icon("back", 16)} App</a>
       ${logoutButton(admin)}
     `,
-    body
+    body: `${body}${importModal}`
   });
 }
 
@@ -188,6 +189,7 @@ function GameManagement(admin, categories) {
             ${admin.loading ? `<span class="admin-spinner"></span>` : icon("reset", 16)}
             Refresh
           </button>
+          <button class="secondary-button admin-small-action" type="button" data-action="admin-open-import-json">${icon("share", 16)} Import JSON</button>
           <button class="primary-button admin-small-action" type="button" data-action="admin-new-game">${icon("plus", 16)} Add</button>
         </div>
       </div>
@@ -396,7 +398,112 @@ function FormGrid(fields) {
   return `<div class="admin-form-grid">${fields.join("")}</div>`;
 }
 
-function TextField({ label, name, value, error = "", required = false, wide = false, list = "", actionButton = "" }) {
+function ImportJsonModal(importer) {
+  const form = importer.form;
+  const formErrors = importer.formErrors || {};
+  const hasForm = Boolean(form);
+  const validationErrors = Object.entries(formErrors).map(([field, message]) => `${field}: ${message}`);
+
+  return `
+    <section class="admin-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="admin-import-title">
+      <div class="admin-card admin-import-modal">
+        <div class="admin-section-heading">
+          <div>
+            <p>Create a game from JSON</p>
+            <h2 id="admin-import-title">Import JSON</h2>
+          </div>
+          <button class="icon-button" type="button" data-action="admin-close-import-json" aria-label="Close import JSON">${icon("x", 18)}</button>
+        </div>
+
+        <div class="admin-import-actions">
+          <label class="admin-field admin-file-field">
+            <span>Choose .json file</span>
+            <input type="file" accept=".json,application/json" data-action="admin-import-json-file" />
+          </label>
+          <button class="secondary-button" type="button" data-action="admin-download-sample-json">${icon("share", 16)} Download sample JSON</button>
+        </div>
+
+        ${
+          importer.fileName
+            ? `<p class="admin-help-text">Selected file: ${escapeHtml(importer.fileName)}</p>`
+            : `<p class="admin-help-text">Supported formats: a direct game object, or an object with <code>game</code> and optional <code>filters</code>.</p>`
+        }
+        ${importer.status ? `<p class="admin-status-text">${escapeHtml(importer.status)}</p>` : ""}
+        ${importer.error ? `<p class="admin-error-text">${escapeHtml(importer.error)}</p>` : ""}
+        ${validationErrors.length ? `<div class="admin-import-message is-error">${validationErrors.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+        ${
+          importer.warnings?.length
+            ? `<div class="admin-import-message">${importer.warnings.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`
+            : ""
+        }
+
+        ${
+          hasForm
+            ? `
+              <div class="admin-import-edit-grid">
+                ${TextField({ label: "Title", name: "import-title", field: "title", value: form.title, error: formErrors.title, required: true, action: "admin-import-field" })}
+                ${TextField({ label: "Slug", name: "import-slug", field: "slug", value: form.slug, error: formErrors.slug, required: true, action: "admin-import-field" })}
+                ${SelectField({ label: "Category", name: "admin-import-category", value: form.category, action: "admin-import-field", field: "category", options: ADMIN_CATEGORY_OPTIONS, error: formErrors.category })}
+                ${NumberField({ label: "Minimum players", name: "import-min-players", field: "min_players", value: form.min_players, min: 1, error: formErrors.min_players, action: "admin-import-field" })}
+              </div>
+              ${ImportPreview({ form, filters: importer.filters || [] })}
+            `
+            : `<div class="admin-state-card"><p>Choose a JSON file to preview the game before saving it.</p></div>`
+        }
+
+        <div class="admin-import-footer">
+          <button class="secondary-button" type="button" data-action="admin-load-import-form" ${hasForm ? "" : "disabled"}>Load into full form</button>
+          <button class="primary-button" type="button" data-action="admin-save-imported-game" ${hasForm && !importer.saving ? "" : "disabled"}>
+            ${importer.saving ? `<span class="admin-spinner"></span>` : icon("check", 17)}
+            ${importer.saving ? "Saving..." : "Save imported game"}
+          </button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ImportPreview({ form, filters }) {
+  const image = form.image_url
+    ? `<img src="${escapeAttr(form.image_url)}" alt="${escapeAttr(form.image_alt || form.title)}" />`
+    : `<div class="admin-preview-art">${icon("dice", 34)}</div>`;
+  const filterCount = filters.reduce((total, filter) => total + filter.options.length, 0);
+
+  return `
+    <section class="admin-import-preview">
+      <div class="admin-preview-media">${image}</div>
+      <div class="admin-import-preview-body">
+        <div>
+          <p>Preview</p>
+          <h3>${escapeHtml(form.title || "Untitled game")}</h3>
+          ${form.subtitle ? `<span>${escapeHtml(form.subtitle)}</span>` : ""}
+          ${form.short_description ? `<small>${escapeHtml(form.short_description)}</small>` : ""}
+        </div>
+        <div class="admin-import-preview-grid">
+          ${PreviewItem("Category", form.category || "Missing")}
+          ${PreviewItem("Players", playerSummary(form))}
+          ${PreviewItem("Duration", form.duration_minutes ? `${form.duration_minutes} min` : "Not set")}
+          ${PreviewItem("Difficulty", form.difficulty || "Not set")}
+          ${PreviewItem("Energy", form.energy_level || "Not set")}
+          ${PreviewItem("Steps", form.steps.length)}
+          ${PreviewItem("Rules", form.rules.length)}
+          ${PreviewItem("Filters", filterCount)}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function PreviewItem(label, value) {
+  return `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>`;
+}
+
+function playerSummary(form) {
+  if (!form.min_players) return "Missing";
+  return form.max_players ? `${form.min_players}-${form.max_players}` : `${form.min_players}+`;
+}
+
+function TextField({ label, name, value, error = "", required = false, wide = false, list = "", actionButton = "", action = "admin-form-field", field = name }) {
   return `
     <label class="admin-field ${wide ? "is-wide" : ""}">
       <span>${escapeHtml(label)}${required ? " *" : ""}</span>
@@ -405,8 +512,8 @@ function TextField({ label, name, value, error = "", required = false, wide = fa
           type="text"
           name="admin-${escapeAttr(name)}"
           value="${escapeAttr(value)}"
-          data-action="admin-form-field"
-          data-field="${escapeAttr(name)}"
+          data-action="${escapeAttr(action)}"
+          data-field="${escapeAttr(field)}"
           ${list ? `list="${escapeAttr(list)}"` : ""}
         />
         ${actionButton ? `<button type="button" data-action="admin-generate-slug">${escapeHtml(actionButton)}</button>` : ""}
@@ -416,7 +523,7 @@ function TextField({ label, name, value, error = "", required = false, wide = fa
   `;
 }
 
-function NumberField({ label, name, value, min = "", error = "" }) {
+function NumberField({ label, name, value, min = "", error = "", action = "admin-form-field", field = name }) {
   return `
     <label class="admin-field">
       <span>${escapeHtml(label)}</span>
@@ -425,8 +532,8 @@ function NumberField({ label, name, value, min = "", error = "" }) {
         name="admin-${escapeAttr(name)}"
         value="${escapeAttr(value)}"
         ${min !== "" ? `min="${escapeAttr(min)}"` : ""}
-        data-action="admin-form-field"
-        data-field="${escapeAttr(name)}"
+        data-action="${escapeAttr(action)}"
+        data-field="${escapeAttr(field)}"
       />
       ${error ? `<small class="admin-error-text">${escapeHtml(error)}</small>` : ""}
     </label>

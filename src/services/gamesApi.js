@@ -1,4 +1,4 @@
-import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260709-admin5";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-json1";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -24,9 +24,80 @@ export const ADMIN_ENERGY_LEVEL_OPTIONS = [
   { id: "high", label: "High" }
 ];
 
+export const GAME_IMPORT_SAMPLE = {
+  game: {
+    slug: "esm-famil",
+    title: "اسم فامیل",
+    subtitle: "یک بازی نوستالژیک و سریع برای جمع‌های دوستانه",
+    short_description: "با یک حرف شروع کنید و برای هر دسته سریع‌تر از بقیه جواب پیدا کنید.",
+    description:
+      "اسم فامیل یک بازی کاغذی و گروهی است که در آن بازیکنان باید با یک حرف مشخص، برای چند دسته مختلف کلمه پیدا کنند.",
+    image_url: "",
+    image_alt: "بازی اسم فامیل",
+    category: "needs-equipment",
+    equipment: ["کاغذ", "خودکار"],
+    tags: ["فکری", "دورهمی", "نوستالژیک"],
+    min_players: 2,
+    max_players: null,
+    duration_minutes: 20,
+    difficulty: "easy",
+    energy_level: "low",
+    game_type: ["thinking", "party"],
+    age_min: 8,
+    is_featured: false,
+    is_active: true,
+    sort_order: 0,
+    setup: "برای هر بازیکن یک کاغذ و خودکار آماده کنید و دسته‌های بازی را مشخص کنید.",
+    steps: [
+      {
+        title: "انتخاب دسته‌ها",
+        description: "چند دسته مثل اسم، فامیل، شهر، کشور، غذا یا حیوان را روی کاغذ بنویسید."
+      },
+      {
+        title: "انتخاب حرف",
+        description: "یک حرف به صورت تصادفی انتخاب کنید. همه جواب‌ها باید با همان حرف شروع شوند."
+      }
+    ],
+    rules: [
+      "جواب تکراری بین چند نفر امتیاز کمتری دارد.",
+      "جوابی که کسی دیگری ننوشته باشد امتیاز کامل می‌گیرد."
+    ],
+    tips: ["برای جذاب‌تر شدن بازی، دسته‌های خنده‌دار یا سخت‌تر اضافه کنید."],
+    suitable_for: ["جمع‌های دوستانه", "خانواده", "دورهمی‌های خانگی"],
+    not_suitable_for: ["زمانی که کاغذ و خودکار در دسترس نیست"]
+  },
+  filters: [
+    {
+      group: "نوع بازی",
+      options: ["فکری", "دورهمی"]
+    },
+    {
+      group: "وسایل لازم",
+      options: ["کاغذ و خودکار"]
+    }
+  ]
+};
+
 const ALLOWED_CATEGORIES = new Set(["needs-equipment", "no-equipment", "online"]);
 const ALLOWED_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
 const ALLOWED_ENERGY_LEVELS = new Set(["low", "medium", "high"]);
+const IMPORT_KEY_ALIASES = {
+  shortDescription: "short_description",
+  imageUrl: "image_url",
+  imageAlt: "image_alt",
+  minPlayers: "min_players",
+  maxPlayers: "max_players",
+  durationMinutes: "duration_minutes",
+  energyLevel: "energy_level",
+  gameType: "game_type",
+  gameTypes: "game_type",
+  ageMin: "age_min",
+  isFeatured: "is_featured",
+  isActive: "is_active",
+  sortOrder: "sort_order",
+  suitableFor: "suitable_for",
+  notSuitableFor: "not_suitable_for"
+};
 
 export function getCachedPublicGames() {
   try {
@@ -131,6 +202,66 @@ export async function saveGame(payload, id = "") {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function assignImportedFiltersToGame(gameId, importedFilters = []) {
+  const filters = normalizeImportedFilters(importedFilters);
+  if (!gameId || !filters.length) {
+    return { assigned: 0, missing: [], error: "" };
+  }
+
+  try {
+    const { data: groups, error: groupsError } = await supabase.from("filter_groups").select("*").limit(500);
+    if (groupsError) throw new Error(groupsError.message);
+
+    const { data: options, error: optionsError } = await supabase.from("filter_options").select("*").limit(2000);
+    if (optionsError) throw new Error(optionsError.message);
+
+    const matchedOptionIds = [];
+    const missing = [];
+
+    filters.forEach((filter) => {
+      const group = findMatchingFilterGroup(groups || [], filter.group);
+      if (!group) {
+        missing.push(filter);
+        return;
+      }
+
+      const missingOptions = [];
+      filter.options.forEach((optionLabel) => {
+        const option = findMatchingFilterOption(options || [], group, optionLabel);
+        if (option?.id) {
+          matchedOptionIds.push(option.id);
+        } else {
+          missingOptions.push(optionLabel);
+        }
+      });
+
+      if (missingOptions.length) {
+        missing.push({ group: filter.group, options: missingOptions });
+      }
+    });
+
+    const uniqueOptionIds = [...new Set(matchedOptionIds.map(String))];
+    if (!uniqueOptionIds.length) {
+      return { assigned: 0, missing, error: "" };
+    }
+
+    const rows = uniqueOptionIds.map((filterOptionId) => ({
+      game_id: gameId,
+      filter_option_id: filterOptionId
+    }));
+    const { error: insertError } = await supabase.from("game_filter_options").insert(rows);
+    if (insertError) throw new Error(insertError.message);
+
+    return { assigned: rows.length, missing, error: "" };
+  } catch (error) {
+    return {
+      assigned: 0,
+      missing: filters,
+      error: error.message || "Filter assignment failed."
+    };
+  }
 }
 
 export async function deleteGame(id) {
@@ -242,6 +373,67 @@ export function formFromGameRow(row = {}) {
 
 export function payloadFromForm(form) {
   return toSupabaseGamePayload(form);
+}
+
+export function sampleGameImportJson() {
+  return `${JSON.stringify(GAME_IMPORT_SAMPLE, null, 2)}\n`;
+}
+
+export function createGameImportDraft(source) {
+  const root = unwrapImportSource(source);
+  if (!root.game) {
+    return {
+      form: null,
+      filters: [],
+      warnings: [],
+      error: "JSON must be a game object or an object with a game key."
+    };
+  }
+
+  const normalized = normalizeImportedGameKeys(root.game);
+  const title = stringForImportForm(normalized.title);
+  const importedImageUrl = stringForImportForm(normalized.image_url);
+  const warnings = [];
+  if (/^data:/i.test(importedImageUrl)) {
+    warnings.push("Base64/data image_url is not supported. Upload the image separately, then paste its public URL.");
+  }
+
+  const form = {
+    ...emptyGameForm(0),
+    id: "",
+    slug: stringForImportForm(normalized.slug) || slugify(title),
+    title,
+    subtitle: stringForImportForm(normalized.subtitle),
+    short_description: stringForImportForm(normalized.short_description),
+    description: stringForImportForm(normalized.description),
+    image_url: /^data:/i.test(importedImageUrl) ? "" : importedImageUrl,
+    image_alt: stringForImportForm(normalized.image_alt),
+    category: normalizeCategoryForDatabase(normalized.category) || stringForImportForm(normalized.category),
+    equipment: normalizeStringArray(normalized.equipment),
+    tags: normalizeStringArray(normalized.tags),
+    min_players: numberStringForImportForm(normalized.min_players),
+    max_players: numberStringForImportForm(normalized.max_players),
+    duration_minutes: numberStringForImportForm(normalized.duration_minutes),
+    difficulty: normalizeDifficultyForDatabase(normalized.difficulty) || stringForImportForm(normalized.difficulty),
+    energy_level: normalizeEnergyLevelForDatabase(normalized.energy_level) || stringForImportForm(normalized.energy_level),
+    game_type: normalizeStringArray(normalized.game_type),
+    age_min: numberStringForImportForm(normalized.age_min),
+    is_featured: booleanForImportForm(normalized.is_featured, false),
+    is_active: booleanForImportForm(normalized.is_active, true),
+    sort_order: numberStringForImportForm(normalized.sort_order, "0"),
+    setup: stringForImportForm(normalized.setup),
+    steps: normalizeSteps(normalized.steps),
+    rules: normalizeStringArray(normalized.rules),
+    tips: normalizeStringArray(normalized.tips),
+    suitable_for: normalizeStringArray(normalized.suitable_for),
+    not_suitable_for: normalizeStringArray(normalized.not_suitable_for)
+  };
+  const filters = normalizeImportedFilters(root.filters);
+  if (filters.length) {
+    warnings.push("Filter assignments will be matched after saving. Missing groups or options will be skipped.");
+  }
+
+  return { form, filters, warnings, error: "" };
 }
 
 export function toSupabaseGamePayload(form) {
@@ -441,6 +633,22 @@ export function normalizeGamePayload(payload = {}) {
     sort_order: nullableNumber(payload.sort_order),
     setup: nullableString(payload.setup)
   };
+}
+
+export function normalizeImportedFilters(value = []) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const group = String(item.group || item.key || item.label || item.name || item.title || "").trim();
+      const optionsSource = Array.isArray(item.options)
+        ? item.options
+        : [item.option || item.value || item.label_value].filter(Boolean);
+      const options = normalizeStringArray(optionsSource);
+      return group && options.length ? { group, options } : null;
+    })
+    .filter(Boolean);
 }
 
 export function normalizeCategoryForDatabase(value) {
@@ -668,6 +876,109 @@ function toNumber(value, fallback) {
 }
 
 function normalizeEnumValue(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+}
+
+function unwrapImportSource(source) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) return { game: null, filters: [] };
+  if (source.game && typeof source.game === "object" && !Array.isArray(source.game)) {
+    return {
+      game: source.game,
+      filters: Array.isArray(source.filters) ? source.filters : []
+    };
+  }
+
+  return {
+    game: source,
+    filters: Array.isArray(source.filters) ? source.filters : []
+  };
+}
+
+function normalizeImportedGameKeys(game) {
+  return Object.entries(game || {}).reduce((acc, [key, value]) => {
+    if (key === "filters") return acc;
+    const alias = IMPORT_KEY_ALIASES[key] || camelToSnake(key);
+    acc[alias] = value;
+    return acc;
+  }, {});
+}
+
+function camelToSnake(value) {
+  return String(value || "").replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+function stringForImportForm(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function numberStringForImportForm(value, fallback = "") {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : String(value).trim();
+}
+
+function booleanForImportForm(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (value === null || value === undefined || value === "") return fallback;
+  const normalized = normalizeEnumValue(value);
+  if (["true", "1", "yes", "y"].includes(normalized)) return true;
+  if (["false", "0", "no", "n"].includes(normalized)) return false;
+  return fallback;
+}
+
+function findMatchingFilterGroup(groups, groupLabel) {
+  const target = normalizeMatchValue(groupLabel);
+  return groups.find((group) => filterRowIdentities(group).includes(target));
+}
+
+function findMatchingFilterOption(options, group, optionLabel) {
+  const target = normalizeMatchValue(optionLabel);
+  const groupIdentities = filterRowIdentities(group);
+  return options.find((option) => {
+    if (!filterRowIdentities(option).includes(target)) return false;
+    const optionGroups = filterOptionGroupIdentities(option);
+    return !optionGroups.length || optionGroups.some((identity) => groupIdentities.includes(identity));
+  });
+}
+
+function filterRowIdentities(row = {}) {
+  return [
+    row.id,
+    row.key,
+    row.slug,
+    row.label,
+    row.name,
+    row.title,
+    row.value,
+    row.label_fa,
+    row.name_fa,
+    row.title_fa
+  ]
+    .map(normalizeMatchValue)
+    .filter(Boolean);
+}
+
+function filterOptionGroupIdentities(row = {}) {
+  return [
+    row.filter_group_id,
+    row.group_id,
+    row.groupId,
+    row.group_key,
+    row.group,
+    row.group_label,
+    row.group_name,
+    row.filter_group_key,
+    row.filter_group_slug
+  ]
+    .map(normalizeMatchValue)
+    .filter(Boolean);
+}
+
+function normalizeMatchValue(value) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
