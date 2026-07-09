@@ -1,4 +1,4 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260709-admin2";
+import { GAME_TYPES } from "../data/constants.js?v=20260709-admin4";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
@@ -6,9 +6,9 @@ import {
   emptyGameForm,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260709-admin2";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260709-admin2";
-import { icon } from "./icons.js?v=20260709-admin2";
+} from "../services/gamesApi.js?v=20260709-admin4";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260709-admin4";
+import { icon } from "./icons.js?v=20260709-admin4";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {

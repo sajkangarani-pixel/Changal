@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260709-admin2";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260709-admin4";
 import {
   AppShell,
   EmptyState,
@@ -8,21 +8,21 @@ import {
   RandomGameSetup,
   StartGameSheet,
   TopAppBar
-} from "./components/components.js?v=20260709-admin2";
-import { AdminRouteScreen } from "./components/admin.js?v=20260709-admin2";
+} from "./components/components.js?v=20260709-admin4";
+import { AdminRouteScreen } from "./components/admin.js?v=20260709-admin4";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260709-admin2";
+} from "./components/screens.js?v=20260709-admin4";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260709-admin2";
+} from "./services/filtering.js?v=20260709-admin4";
 import {
   getLastFilters,
   getPreferences,
@@ -30,14 +30,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260709-admin2";
+} from "./services/storage.js?v=20260709-admin4";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260709-admin2";
+} from "./services/i18n.js?v=20260709-admin4";
 import {
   checkAdminAccess,
   deleteGame,
@@ -60,7 +60,7 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260709-admin2";
+} from "./services/gamesApi.js?v=20260709-admin4";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -597,7 +597,7 @@ function parseRoute() {
   if (parts[0] === "explore") return { name: "explore", params: {} };
   if (parts[0] === "saved") return { name: "saved", params: {} };
   if (parts[0] === "profile") return { name: "profile", params: {} };
-  if (parts[0] === "game" && parts[1]) return { name: "game", params: { slug: parts[1] } };
+  if (parts[0] === "game" && parts[1]) return { name: "game", params: { slug: safeDecode(parts[1]) } };
   if (parts[0] === "admin" && parts[1] === "login") return { name: "adminLogin", params: {} };
   if (parts[0] === "admin") return { name: "admin", params: {} };
 
@@ -616,7 +616,7 @@ function routeToHash(route) {
   if (route.name === "explore") return "#/explore";
   if (route.name === "saved") return "#/saved";
   if (route.name === "profile") return "#/profile";
-  if (route.name === "game") return `#/game/${route.params.slug}`;
+  if (route.name === "game") return `#/game/${encodeURIComponent(route.params.slug || "")}`;
   if (route.name === "adminLogin") return "#/admin/login";
   if (route.name === "admin") return "#/admin";
   return "#/";
@@ -626,6 +626,14 @@ function activeScope() {
   if (state.route.name === "explore") return "explore";
   if (state.route.name === "saved") return "saved";
   return "discover";
+}
+
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
 }
 
 function getCriteriaForScope(scope) {
@@ -967,12 +975,16 @@ async function handleAdminDuplicate(id) {
 async function handleAdminToggle(id, field) {
   const row = state.admin.games.find((game) => String(game.id) === String(id));
   if (!row) return;
+  const nextValue = !Boolean(row[field]);
 
   state.admin.busyId = String(id);
   render();
 
   try {
-    await updateGameField(id, field, !row[field]);
+    await updateGameField(id, field, nextValue);
+    state.admin.games = state.admin.games.map((game) =>
+      String(game.id) === String(id) ? { ...game, [field]: nextValue } : game
+    );
     await loadAdminGames({ silent: true });
     if (field === "is_active" || row.is_active) {
       await refreshPublicGames({ silent: true });

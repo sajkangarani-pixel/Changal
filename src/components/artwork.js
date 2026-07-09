@@ -10,15 +10,14 @@ export function renderArtwork(game, className = "") {
       style="--art-a:${art.a}; --art-b:${art.b}; --art-c:${art.c};"
       data-motif="${escapeHtml(art.motif)}"
     >
+      <span class="art-orbit art-orbit-one"></span>
+      <span class="art-orbit art-orbit-two"></span>
+      <span class="art-glyph">${renderMotif(art.motif)}</span>
+      <span class="art-noise"></span>
       ${
         game.imageUrl
-          ? `<img class="cover-art-image" src="${escapeHtml(game.imageUrl)}" alt="${escapeHtml(label)}" loading="lazy" />`
-          : `
-            <span class="art-orbit art-orbit-one"></span>
-            <span class="art-orbit art-orbit-two"></span>
-            <span class="art-glyph">${renderMotif(art.motif)}</span>
-            <span class="art-noise"></span>
-          `
+          ? `<img class="cover-art-image" src="${escapeHtml(game.imageUrl)}" alt="${escapeHtml(label)}" loading="lazy" onerror="this.remove()" />`
+          : ""
       }
     </div>
   `;

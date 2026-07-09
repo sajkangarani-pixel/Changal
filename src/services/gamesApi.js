@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=20260709-admin2";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260709-admin4";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -49,7 +49,7 @@ export async function fetchPublicGames() {
 
   if (error) throw new Error(error.message);
 
-  const games = normalizeGameRows(data || []).sort(sortPublicGames);
+  const games = (data || []).map(fromSupabaseGame).sort(sortPublicGames);
   cachePublicGames(games);
   return games;
 }
@@ -123,7 +123,6 @@ export async function isSlugUnique(slug, currentId = "") {
 
 export async function saveGame(payload, id = "") {
   const safePayload = normalizeGamePayload(payload);
-  logPayloadInDevelopment(safePayload, id);
 
   const query = id
     ? supabase.from("games").update(safePayload).eq("id", id).select("*").single()
@@ -140,9 +139,11 @@ export async function deleteGame(id) {
 }
 
 export async function updateGameField(id, field, value) {
-  const { data, error } = await supabase.from("games").update({ [field]: value }).eq("id", id).select("*").single();
+  const allowedFields = new Set(["is_active", "is_featured", "sort_order"]);
+  if (!allowedFields.has(field)) throw new Error("Unsupported game update field.");
+
+  const { error } = await supabase.from("games").update({ [field]: value }).eq("id", id);
   if (error) throw new Error(error.message);
-  return data;
 }
 
 export async function updateGameSortOrder(updates) {
@@ -240,6 +241,10 @@ export function formFromGameRow(row = {}) {
 }
 
 export function payloadFromForm(form) {
+  return toSupabaseGamePayload(form);
+}
+
+export function toSupabaseGamePayload(form) {
   return normalizeGamePayload({
     slug: form.slug.trim(),
     title: form.title.trim(),
@@ -292,10 +297,10 @@ export function validateGameForm(form) {
 }
 
 export function normalizeGameRows(rows = []) {
-  return rows.map(normalizeGameRow);
+  return rows.map(fromSupabaseGame);
 }
 
-export function normalizeGameRow(row = {}) {
+export function fromSupabaseGame(row = {}) {
   const title = row.title || "Untitled game";
   const equipment = normalizeEquipment(row.equipment, row.category);
   const gameTypes = normalizeStringArray(row.game_type).length ? normalizeStringArray(row.game_type) : inferGameTypes(row.category);
@@ -305,18 +310,19 @@ export function normalizeGameRow(row = {}) {
   const sortOrder = toNumber(row.sort_order, 0);
   const steps = normalizeSteps(row.steps);
   const setup = normalizeInstructionList(row.setup);
+  const slug = normalizeGameSlug(row, title);
 
   return {
     id: String(row.id),
-    slug: row.slug || slugify(title),
+    slug,
     title,
     subtitle: row.subtitle || "",
     shortDescription: row.short_description || row.subtitle || row.description || "A group game ready to play.",
     description: row.description || row.short_description || row.subtitle || "Gather the group and follow the steps to play.",
-    imageUrl: row.image_url || "",
+    imageUrl: normalizeImageUrl(row.image_url),
     imageAlt: row.image_alt || `${title} cover`,
     category: row.category || requirementCategory,
-    coverImage: row.slug || slugify(title),
+    coverImage: slug,
     artwork: artworkFromRow(row, sortOrder),
     featured: Boolean(row.is_featured),
     trending: Boolean(row.is_featured),
@@ -352,6 +358,8 @@ export function normalizeGameRow(row = {}) {
   };
 }
 
+export const normalizeGameRow = fromSupabaseGame;
+
 export function slugify(value) {
   return String(value || "")
     .trim()
@@ -361,6 +369,27 @@ export function slugify(value) {
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 96);
+}
+
+export function normalizeGameSlug(row = {}, title = "") {
+  const slug = String(row.slug || "").trim();
+  if (slug) return slugify(slug) || slug;
+  return slugify(title) || String(row.id || "").trim();
+}
+
+export function normalizeImageUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const googleDriveImageUrl = normalizeGoogleDriveImageUrl(raw);
+  if (googleDriveImageUrl) return googleDriveImageUrl;
+
+  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
+  if (/^(\.?\.?\/|\/)/.test(raw)) return raw;
+  if (/^(src|assets|images)\//i.test(raw)) return raw;
+
+  const storagePath = raw.replace(/^game-images\//, "").replace(/^\/+/, "");
+  return `${SUPABASE_URL}/storage/v1/object/public/game-images/${encodeStoragePath(storagePath)}`;
 }
 
 export function nextSortOrder(rows = []) {
@@ -520,6 +549,23 @@ function normalizeRequirementCategory(category, equipment, gameTypes) {
   return equipment.some((item) => item.id !== "no-equipment") ? "simple-equipment" : "no-equipment";
 }
 
+function encodeStoragePath(path) {
+  return path
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function normalizeGoogleDriveImageUrl(value) {
+  const fileMatch = value.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+  const idMatch = value.match(/[?&]id=([^&]+)/i);
+  const id = fileMatch?.[1] || idMatch?.[1];
+
+  if (!id) return "";
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
+}
+
 function normalizeStringArray(value) {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -640,20 +686,6 @@ function activityLevelFromEnergyLevel(value) {
   if (energyLevel === "medium") return "active";
   if (energyLevel === "high") return "high-energy";
   return "light";
-}
-
-function logPayloadInDevelopment(payload, id) {
-  if (typeof window === "undefined") return;
-  const isDevelopment =
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.protocol === "file:";
-
-  if (!isDevelopment) return;
-  console.debug("[Changal admin] Saving game payload", {
-    mode: id ? "update" : "insert",
-    payload
-  });
 }
 
 function parseJson(value) {

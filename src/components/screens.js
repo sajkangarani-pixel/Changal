@@ -6,8 +6,8 @@ import {
   GAME_TYPES,
   PLAYER_RANGES,
   PLAY_STYLES
-} from "../data/constants.js?v=20260709-admin2";
-import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin2";
+} from "../data/constants.js?v=20260709-admin4";
+import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin4";
 import {
   ActiveFilterSummary,
   DetailHero,
@@ -28,8 +28,8 @@ import {
   advancedFilterCountLabel,
   escapeAttr,
   escapeHtml
-} from "./components.js?v=20260709-admin2";
-import { icon } from "./icons.js?v=20260709-admin2";
+} from "./components.js?v=20260709-admin4";
+import { icon } from "./icons.js?v=20260709-admin4";
 import {
   filterGames,
   formatEquipment,
@@ -40,7 +40,7 @@ import {
   getRelatedGames,
   getRequirementLabel,
   sortGames
-} from "../services/filtering.js?v=20260709-admin2";
+} from "../services/filtering.js?v=20260709-admin4";
 
 export function DiscoverScreen({ state, games, savedIds, preferences }) {
   const criteria = {
@@ -270,7 +270,10 @@ export function ProfileScreen({ preferences, savedIds }) {
 }
 
 export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
-  const game = games.find((candidate) => candidate.slug === slug);
+  const gameKey = safeDecode(slug);
+  const game = games.find(
+    (candidate) => String(candidate.slug) === gameKey || String(candidate.id) === gameKey
+  );
 
   if (!game) {
     return `
@@ -362,4 +365,12 @@ function PreferenceSection({ title, key, type, selected, options }) {
       </div>
     </section>
   `;
+}
+
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
 }

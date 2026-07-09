@@ -1,4 +1,4 @@
-import { DEFAULT_PREFERENCES } from "../data/constants.js?v=20260709-admin2";
+import { DEFAULT_PREFERENCES } from "../data/constants.js?v=20260709-admin4";
 
 const STORAGE_KEYS = {
   savedGames: "changal.savedGames",

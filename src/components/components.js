@@ -7,7 +7,7 @@ import {
   DURATION_RANGES,
   ACTIVITY_LEVELS,
   ENVIRONMENTS
-} from "../data/constants.js?v=20260709-admin2";
+} from "../data/constants.js?v=20260709-admin4";
 import {
   countAdvancedFilters,
   formatDuration,
@@ -16,9 +16,9 @@ import {
   getGameTypeLabel,
   getRequirementLabel,
   summarizeFilters
-} from "../services/filtering.js?v=20260709-admin2";
-import { renderArtwork } from "./artwork.js?v=20260709-admin2";
-import { icon } from "./icons.js?v=20260709-admin2";
+} from "../services/filtering.js?v=20260709-admin4";
+import { renderArtwork } from "./artwork.js?v=20260709-admin4";
+import { icon } from "./icons.js?v=20260709-admin4";
 
 export const navItems = [
   { id: "discover", label: "Discover", icon: "discover", href: "#/" },
@@ -219,9 +219,11 @@ export function FeaturedGameCarousel({ games, savedIds }) {
 }
 
 export function FeaturedGameCard({ game, saved }) {
+  const detailHref = gameDetailHref(game);
+
   return `
     <article class="featured-card">
-      <a class="featured-card-link" href="#/game/${game.slug}" aria-label="Open ${escapeAttr(game.title)} details"></a>
+      <a class="featured-card-link" href="${detailHref}" aria-label="Open ${escapeAttr(game.title)} details"></a>
       ${renderArtwork(game, "featured-art")}
       <div class="featured-gradient" aria-hidden="true"></div>
       <div class="featured-top-row">
@@ -236,7 +238,7 @@ export function FeaturedGameCard({ game, saved }) {
           <span>${icon("clock", 15)} ${escapeHtml(formatDuration(game))}</span>
         </div>
       </div>
-      <a class="round-cta" href="#/game/${game.slug}" aria-label="View ${escapeAttr(game.title)}">${icon("arrow", 21)}</a>
+      <a class="round-cta" href="${detailHref}" aria-label="View ${escapeAttr(game.title)}">${icon("arrow", 21)}</a>
     </article>
   `;
 }
@@ -260,10 +262,11 @@ export function GameGrid({ games, savedIds, emptyTitle = "No games match these f
 export function GameCard({ game, saved }) {
   const primaryType = getGameTypeLabel(game.gameTypes[0]);
   const tags = (game.displayTags || game.tags).slice(0, 2).join(" · ");
+  const detailHref = gameDetailHref(game);
 
   return `
     <article class="game-card ${game.trending ? "is-trending" : ""}">
-      <a class="game-card-link" href="#/game/${game.slug}" aria-label="Open ${escapeAttr(game.title)} details"></a>
+      <a class="game-card-link" href="${detailHref}" aria-label="Open ${escapeAttr(game.title)} details"></a>
       <div class="game-card-art-wrap">
         ${renderArtwork(game, "game-card-art")}
         ${game.trending ? `<span class="badge badge-dark">Editor's pick</span>` : ""}
@@ -499,7 +502,7 @@ export function RandomGameResult({ result, savedIds }) {
         </div>
         ${GameMetadata(game)}
         <div class="random-actions">
-          <a class="primary-button" href="#/game/${game.slug}" data-action="close-random-result">${icon("play", 18)} Start Game</a>
+          <a class="primary-button" href="${gameDetailHref(game)}" data-action="close-random-result">${icon("play", 18)} Start Game</a>
           <button class="secondary-button" type="button" data-action="pick-random">${icon("reset", 17)} Pick Another</button>
         </div>
       </div>
@@ -705,4 +708,9 @@ export function buildFilterApplyCount(games, filterGames, criteria, draftFilters
 export function advancedFilterCountLabel(filters) {
   const count = countAdvancedFilters(filters);
   return count ? `${count} active` : "Filters";
+}
+
+export function gameDetailHref(game) {
+  const routeKey = String(game.slug || game.id || "").trim();
+  return `#/game/${encodeURIComponent(routeKey)}`;
 }
