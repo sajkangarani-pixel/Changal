@@ -6,8 +6,8 @@ import {
   GAME_TYPES,
   PLAYER_RANGES,
   PLAY_STYLES
-} from "../data/constants.js";
-import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-fa3";
+} from "../data/constants.js?v=20260709-admin1";
+import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin1";
 import {
   ActiveFilterSummary,
   DetailHero,
@@ -28,8 +28,8 @@ import {
   advancedFilterCountLabel,
   escapeAttr,
   escapeHtml
-} from "./components.js";
-import { icon } from "./icons.js?v=20260709-fa3";
+} from "./components.js?v=20260709-admin1";
+import { icon } from "./icons.js?v=20260709-admin1";
 import {
   filterGames,
   formatEquipment,
@@ -40,7 +40,7 @@ import {
   getRelatedGames,
   getRequirementLabel,
   sortGames
-} from "../services/filtering.js?v=20260709-fa3";
+} from "../services/filtering.js?v=20260709-admin1";
 
 export function DiscoverScreen({ state, games, savedIds, preferences }) {
   const criteria = {

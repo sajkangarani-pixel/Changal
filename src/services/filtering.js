@@ -8,7 +8,7 @@ import {
   PLAYER_RANGES,
   PLAY_STYLES,
   REQUIREMENT_CATEGORIES
-} from "../data/constants.js?v=20260709-fa3";
+} from "../data/constants.js?v=20260709-admin1";
 
 const labelMaps = {
   gameTypes: mapLabels(GAME_TYPES),

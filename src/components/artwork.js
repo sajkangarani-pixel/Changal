@@ -1,6 +1,6 @@
 export function renderArtwork(game, className = "") {
   const art = game.artwork || { a: "#d0ff4f", b: "#59663a", c: "#171916", motif: "spark" };
-  const label = `${game.title} abstract game cover`;
+  const label = game.imageAlt || `${game.title} game cover`;
 
   return `
     <div
@@ -10,10 +10,16 @@ export function renderArtwork(game, className = "") {
       style="--art-a:${art.a}; --art-b:${art.b}; --art-c:${art.c};"
       data-motif="${escapeHtml(art.motif)}"
     >
-      <span class="art-orbit art-orbit-one"></span>
-      <span class="art-orbit art-orbit-two"></span>
-      <span class="art-glyph">${renderMotif(art.motif)}</span>
-      <span class="art-noise"></span>
+      ${
+        game.imageUrl
+          ? `<img class="cover-art-image" src="${escapeHtml(game.imageUrl)}" alt="${escapeHtml(label)}" loading="lazy" />`
+          : `
+            <span class="art-orbit art-orbit-one"></span>
+            <span class="art-orbit art-orbit-two"></span>
+            <span class="art-glyph">${renderMotif(art.motif)}</span>
+            <span class="art-noise"></span>
+          `
+      }
     </div>
   `;
 }
