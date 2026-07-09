@@ -1,7 +1,32 @@
-import { supabase } from "./supabaseClient.js?v=20260709-admin1";
+import { supabase } from "./supabaseClient.js?v=20260709-admin2";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
+
+export const ADMIN_CATEGORY_OPTIONS = [
+  { id: "", label: "Choose category" },
+  { id: "no-equipment", label: "No equipment" },
+  { id: "needs-equipment", label: "Needs equipment" },
+  { id: "online", label: "Online" }
+];
+
+export const ADMIN_DIFFICULTY_OPTIONS = [
+  { id: "", label: "Not selected" },
+  { id: "easy", label: "Easy" },
+  { id: "medium", label: "Medium" },
+  { id: "hard", label: "Hard" }
+];
+
+export const ADMIN_ENERGY_LEVEL_OPTIONS = [
+  { id: "", label: "Not selected" },
+  { id: "low", label: "Low" },
+  { id: "medium", label: "Medium" },
+  { id: "high", label: "High" }
+];
+
+const ALLOWED_CATEGORIES = new Set(["needs-equipment", "no-equipment", "online"]);
+const ALLOWED_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+const ALLOWED_ENERGY_LEVELS = new Set(["low", "medium", "high"]);
 
 export function getCachedPublicGames() {
   try {
@@ -97,9 +122,12 @@ export async function isSlugUnique(slug, currentId = "") {
 }
 
 export async function saveGame(payload, id = "") {
+  const safePayload = normalizeGamePayload(payload);
+  logPayloadInDevelopment(safePayload, id);
+
   const query = id
-    ? supabase.from("games").update(payload).eq("id", id).select("*").single()
-    : supabase.from("games").insert(payload).select("*").single();
+    ? supabase.from("games").update(safePayload).eq("id", id).select("*").single()
+    : supabase.from("games").insert(safePayload).select("*").single();
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -162,8 +190,8 @@ export function emptyGameForm(nextSortOrder = 10) {
     min_players: "2",
     max_players: "",
     duration_minutes: "15",
-    difficulty: "easy",
-    energy_level: "light",
+    difficulty: "",
+    energy_level: "",
     game_type: [""],
     age_min: "8",
     is_featured: false,
@@ -189,14 +217,14 @@ export function formFromGameRow(row = {}) {
     description: row.description || "",
     image_url: row.image_url || "",
     image_alt: row.image_alt || "",
-    category: row.category || "",
+    category: normalizeCategoryForDatabase(row.category) || "",
     equipment: listForForm(row.equipment),
     tags: listForForm(row.tags),
     min_players: stringNumber(row.min_players, "2"),
     max_players: stringNumber(row.max_players, ""),
     duration_minutes: stringNumber(row.duration_minutes, "15"),
-    difficulty: row.difficulty || "easy",
-    energy_level: row.energy_level || "light",
+    difficulty: normalizeDifficultyForDatabase(row.difficulty) || "",
+    energy_level: normalizeEnergyLevelForDatabase(row.energy_level) || "",
     game_type: listForForm(row.game_type),
     age_min: stringNumber(row.age_min, "8"),
     is_featured: Boolean(row.is_featured),
@@ -212,44 +240,49 @@ export function formFromGameRow(row = {}) {
 }
 
 export function payloadFromForm(form) {
-  return {
+  return normalizeGamePayload({
     slug: form.slug.trim(),
     title: form.title.trim(),
-    subtitle: form.subtitle.trim() || null,
-    short_description: form.short_description.trim() || null,
-    description: form.description.trim() || null,
-    image_url: form.image_url.trim() || null,
-    image_alt: form.image_alt.trim() || null,
-    category: form.category.trim(),
+    subtitle: form.subtitle,
+    short_description: form.short_description,
+    description: form.description,
+    image_url: form.image_url,
+    image_alt: form.image_alt,
+    category: form.category,
     equipment: cleanStringList(form.equipment),
     tags: cleanStringList(form.tags),
-    min_players: toNumber(form.min_players, 1),
-    max_players: form.max_players === "" ? null : toNumber(form.max_players, null),
-    duration_minutes: toNumber(form.duration_minutes, 15),
-    difficulty: form.difficulty || "easy",
-    energy_level: form.energy_level || "light",
+    min_players: form.min_players,
+    max_players: form.max_players,
+    duration_minutes: form.duration_minutes,
+    difficulty: form.difficulty,
+    energy_level: form.energy_level,
     game_type: cleanStringList(form.game_type),
-    age_min: toNumber(form.age_min, 0),
+    age_min: form.age_min,
     is_featured: Boolean(form.is_featured),
     is_active: Boolean(form.is_active),
-    sort_order: toNumber(form.sort_order, 0),
-    setup: form.setup.trim() || null,
+    sort_order: form.sort_order,
+    setup: form.setup,
     steps: cleanSteps(form.steps),
     rules: cleanStringList(form.rules),
     tips: cleanStringList(form.tips),
     suitable_for: cleanStringList(form.suitable_for),
     not_suitable_for: cleanStringList(form.not_suitable_for)
-  };
+  });
 }
 
 export function validateGameForm(form) {
   const errors = {};
   const minPlayers = toNumber(form.min_players, 0);
   const maxPlayers = form.max_players === "" ? null : toNumber(form.max_players, 0);
+  const category = normalizeCategoryForDatabase(form.category);
+  const difficulty = normalizeDifficultyForDatabase(form.difficulty);
+  const energyLevel = normalizeEnergyLevelForDatabase(form.energy_level);
 
   if (!form.title.trim()) errors.title = "Title is required.";
   if (!form.slug.trim()) errors.slug = "Slug is required.";
-  if (!form.category.trim()) errors.category = "Category is required.";
+  if (!category) errors.category = "Choose no-equipment, needs-equipment, or online.";
+  if (form.difficulty && !difficulty) errors.difficulty = "Choose easy, medium, hard, or leave it empty.";
+  if (form.energy_level && !energyLevel) errors.energy_level = "Choose low, medium, high, or leave it empty.";
   if (minPlayers < 1) errors.min_players = "Minimum players must be at least 1.";
   if (maxPlayers !== null && maxPlayers < minPlayers) {
     errors.max_players = "Maximum players must be empty or greater than minimum players.";
@@ -299,8 +332,8 @@ export function normalizeGameRow(row = {}) {
     durationMax: duration,
     ageMin,
     ageGroups: ageGroupsFromMinimum(ageMin),
-    difficulty: row.difficulty || "easy",
-    activityLevel: row.energy_level || "light",
+    difficulty: difficultyForPublic(row.difficulty),
+    activityLevel: activityLevelFromEnergyLevel(row.energy_level),
     environments: environmentsFromCategory(requirementCategory),
     playStyles: playStylesFromTypes(gameTypes),
     setupInstructions: setup.length ? setup : ["Gather players and review the rules."],
@@ -355,6 +388,76 @@ export function duplicatePayload(row, existingRows = []) {
   return payloadFromForm(form);
 }
 
+export function normalizeGamePayload(payload = {}) {
+  const minPlayers = Math.max(1, toNumber(payload.min_players, 1));
+  const rawMaxPlayers = nullableNumber(payload.max_players);
+  const maxPlayers = rawMaxPlayers === null || rawMaxPlayers >= minPlayers ? rawMaxPlayers : null;
+
+  return {
+    ...payload,
+    slug: requiredString(payload.slug),
+    title: requiredString(payload.title),
+    subtitle: nullableString(payload.subtitle),
+    short_description: nullableString(payload.short_description),
+    description: nullableString(payload.description),
+    image_url: nullableString(payload.image_url),
+    image_alt: nullableString(payload.image_alt),
+    category: normalizeCategoryForDatabase(payload.category),
+    min_players: minPlayers,
+    max_players: maxPlayers,
+    duration_minutes: nullableNumber(payload.duration_minutes),
+    difficulty: normalizeDifficultyForDatabase(payload.difficulty),
+    energy_level: normalizeEnergyLevelForDatabase(payload.energy_level),
+    age_min: nullableNumber(payload.age_min),
+    sort_order: nullableNumber(payload.sort_order),
+    setup: nullableString(payload.setup)
+  };
+}
+
+export function normalizeCategoryForDatabase(value) {
+  const normalized = normalizeEnumValue(value);
+  const aliases = {
+    "needs-equipment": "needs-equipment",
+    "need-equipment": "needs-equipment",
+    "simple-equipment": "needs-equipment",
+    equipment: "needs-equipment",
+    "custom-equipment": "needs-equipment",
+    "no-equipment": "no-equipment",
+    none: "no-equipment",
+    "no equipment": "no-equipment",
+    online: "online",
+    remote: "online"
+  };
+  const mapped = aliases[normalized] || normalized;
+  return ALLOWED_CATEGORIES.has(mapped) ? mapped : "";
+}
+
+export function normalizeDifficultyForDatabase(value) {
+  const normalized = normalizeEnumValue(value);
+  if (!normalized) return null;
+  const aliases = {
+    "very-easy": "easy",
+    beginner: "easy",
+    advanced: "hard",
+    difficult: "hard"
+  };
+  const mapped = aliases[normalized] || normalized;
+  return ALLOWED_DIFFICULTIES.has(mapped) ? mapped : null;
+}
+
+export function normalizeEnergyLevelForDatabase(value) {
+  const normalized = normalizeEnumValue(value);
+  if (!normalized) return null;
+  const aliases = {
+    calm: "low",
+    light: "low",
+    active: "medium",
+    "high-energy": "high"
+  };
+  const mapped = aliases[normalized] || normalized;
+  return ALLOWED_ENERGY_LEVELS.has(mapped) ? mapped : null;
+}
+
 function cachePublicGames(games) {
   try {
     window.localStorage.setItem(
@@ -406,7 +509,8 @@ function normalizeEquipment(value, category = "") {
 }
 
 function normalizeRequirementCategory(category, equipment, gameTypes) {
-  if (["no-equipment", "simple-equipment", "online"].includes(category)) return category;
+  if (category === "needs-equipment" || category === "simple-equipment") return "simple-equipment";
+  if (["no-equipment", "online"].includes(category)) return category;
   const haystack = [category, ...equipment.map((item) => item.id), ...equipment.map((item) => item.name), ...gameTypes]
     .join(" ")
     .toLowerCase();
@@ -496,10 +600,60 @@ function stringNumber(value, fallback) {
   return value === null || value === undefined ? fallback : String(value);
 }
 
+function requiredString(value) {
+  return String(value ?? "").trim();
+}
+
+function nullableString(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function nullableNumber(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function toNumber(value, fallback) {
   if (value === "" || value === null || value === undefined) return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeEnumValue(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
+}
+
+function difficultyForPublic(value) {
+  const difficulty = normalizeDifficultyForDatabase(value);
+  if (difficulty === "hard") return "advanced";
+  return difficulty || "easy";
+}
+
+function activityLevelFromEnergyLevel(value) {
+  const energyLevel = normalizeEnergyLevelForDatabase(value);
+  if (energyLevel === "low") return "light";
+  if (energyLevel === "medium") return "active";
+  if (energyLevel === "high") return "high-energy";
+  return "light";
+}
+
+function logPayloadInDevelopment(payload, id) {
+  if (typeof window === "undefined") return;
+  const isDevelopment =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.protocol === "file:";
+
+  if (!isDevelopment) return;
+  console.debug("[Changal admin] Saving game payload", {
+    mode: id ? "update" : "insert",
+    payload
+  });
 }
 
 function parseJson(value) {

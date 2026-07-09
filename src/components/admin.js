@@ -1,16 +1,14 @@
+import { GAME_TYPES } from "../data/constants.js?v=20260709-admin2";
 import {
-  ACTIVITY_LEVELS,
-  DIFFICULTIES,
-  GAME_TYPES,
-  REQUIREMENT_CATEGORIES
-} from "../data/constants.js?v=20260709-admin1";
-import {
+  ADMIN_CATEGORY_OPTIONS,
+  ADMIN_DIFFICULTY_OPTIONS,
+  ADMIN_ENERGY_LEVEL_OPTIONS,
   emptyGameForm,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260709-admin1";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260709-admin1";
-import { icon } from "./icons.js?v=20260709-admin1";
+} from "../services/gamesApi.js?v=20260709-admin2";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260709-admin2";
+import { icon } from "./icons.js?v=20260709-admin2";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {
@@ -303,27 +301,19 @@ function GameForm({ admin, categories }) {
             TextField({ label: "Title", name: "title", value: form.title, error: errors.title, required: true }),
             TextField({ label: "Subtitle", name: "subtitle", value: form.subtitle }),
             TextField({ label: "Slug", name: "slug", value: form.slug, error: errors.slug, required: true, actionButton: "Generate" }),
-            TextField({ label: "Category", name: "category", value: form.category, error: errors.category, required: true, list: "admin-category-options" }),
+            SelectField({ label: "Category", name: "category", value: form.category, action: "admin-form-field", options: ADMIN_CATEGORY_OPTIONS, error: errors.category }),
             TextField({ label: "Short description", name: "short_description", value: form.short_description, wide: true }),
             TextArea({ label: "Full description", name: "description", value: form.description, wide: true, rows: 4 }),
             NumberField({ label: "Minimum players", name: "min_players", value: form.min_players, min: 1, error: errors.min_players }),
             NumberField({ label: "Maximum players", name: "max_players", value: form.max_players, min: 1, error: errors.max_players }),
             NumberField({ label: "Duration minutes", name: "duration_minutes", value: form.duration_minutes, min: 1 }),
             NumberField({ label: "Minimum age", name: "age_min", value: form.age_min, min: 0 }),
-            SelectField({ label: "Difficulty", name: "difficulty", value: form.difficulty, action: "admin-form-field", options: DIFFICULTIES }),
-            SelectField({ label: "Energy level", name: "energy_level", value: form.energy_level, action: "admin-form-field", options: ACTIVITY_LEVELS }),
+            SelectField({ label: "Difficulty", name: "difficulty", value: form.difficulty, action: "admin-form-field", options: ADMIN_DIFFICULTY_OPTIONS, error: errors.difficulty }),
+            SelectField({ label: "Energy level", name: "energy_level", value: form.energy_level, action: "admin-form-field", options: ADMIN_ENERGY_LEVEL_OPTIONS, error: errors.energy_level }),
             NumberField({ label: "Sort order", name: "sort_order", value: form.sort_order }),
             ToggleField({ label: "Featured", name: "is_featured", checked: form.is_featured }),
             ToggleField({ label: "Active", name: "is_active", checked: form.is_active })
           ])}
-          <datalist id="admin-category-options">
-            ${categories
-              .concat(REQUIREMENT_CATEGORIES.filter((item) => item.id !== "all").map((item) => item.id))
-              .filter(Boolean)
-              .filter(unique)
-              .map((category) => `<option value="${escapeAttr(category)}"></option>`)
-              .join("")}
-          </datalist>
         </div>
 
         <div class="admin-card admin-form-card">
@@ -457,7 +447,7 @@ function TextArea({ label, name, value, rows = 3, wide = false }) {
   `;
 }
 
-function SelectField({ label, name, value, action, field = "", options }) {
+function SelectField({ label, name, value, action, field = "", options, error = "" }) {
   return `
     <label class="admin-field">
       <span>${escapeHtml(label)}</span>
@@ -466,6 +456,7 @@ function SelectField({ label, name, value, action, field = "", options }) {
           .map((option) => `<option value="${escapeAttr(option.id)}" ${value === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
           .join("")}
       </select>
+      ${error ? `<small class="admin-error-text">${escapeHtml(error)}</small>` : ""}
     </label>
   `;
 }
