@@ -7,7 +7,7 @@ import {
   DURATION_RANGES,
   ACTIVITY_LEVELS,
   ENVIRONMENTS
-} from "../data/constants.js?v=20260709-admin4";
+} from "../data/constants.js?v=20260709-admin5";
 import {
   countAdvancedFilters,
   formatDuration,
@@ -16,9 +16,9 @@ import {
   getGameTypeLabel,
   getRequirementLabel,
   summarizeFilters
-} from "../services/filtering.js?v=20260709-admin4";
-import { renderArtwork } from "./artwork.js?v=20260709-admin4";
-import { icon } from "./icons.js?v=20260709-admin4";
+} from "../services/filtering.js?v=20260709-admin5";
+import { renderArtwork } from "./artwork.js?v=20260709-admin5";
+import { icon } from "./icons.js?v=20260709-admin5";
 
 export const navItems = [
   { id: "discover", label: "Discover", icon: "discover", href: "#/" },
@@ -510,49 +510,6 @@ export function RandomGameResult({ result, savedIds }) {
   `;
 }
 
-export function StartGameSheet({ game, onlineAvailable }) {
-  if (!game) return "";
-
-  const isOnline = game.requirementCategory === "online";
-  const unavailable = isOnline && !onlineAvailable;
-  const firstStep = game.setupInstructions?.[0] || "Gather your players.";
-
-  return `
-    <div class="sheet-backdrop" data-action="close-starter" aria-hidden="true"></div>
-    <section class="starter-sheet" role="dialog" aria-modal="true" aria-labelledby="starter-title">
-      <div class="sheet-handle" aria-hidden="true"></div>
-      <div class="sheet-header">
-        <div>
-          <p>Game starter</p>
-          <h2 id="starter-title">${escapeHtml(game.title)}</h2>
-        </div>
-        <button class="icon-button" type="button" data-action="close-starter" aria-label="Close starter">${icon("x")}</button>
-      </div>
-      <div class="starter-panel ${unavailable ? "is-disabled" : ""}">
-        <div class="starter-icon">${icon(unavailable ? "offline" : isOnline ? "globe" : "play", 24)}</div>
-        <div>
-          <h3>${unavailable ? "Online play is unavailable" : isOnline ? "Open the online room" : "Ready to start"}</h3>
-          <p>${escapeHtml(unavailable ? "Reconnect to the internet before launching this game." : firstStep)}</p>
-        </div>
-      </div>
-      <div class="starter-tools">
-        <button class="tool-button" type="button" data-action="mock-timer">${icon("clock", 17)} 60s Timer</button>
-        <button class="tool-button" type="button" data-action="mock-first-player">${icon("users", 17)} First Player</button>
-        <button class="tool-button" type="button" data-action="mock-prompt">${icon("sparkles", 17)} Prompt</button>
-      </div>
-      ${
-        isOnline
-          ? `<a class="primary-button primary-button-full ${unavailable ? "is-disabled" : ""}" href="${escapeAttr(game.onlineUrl || "#")}" target="_blank" rel="noreferrer" aria-disabled="${unavailable}">
-              ${icon("globe", 18)} Open Online Game
-            </a>`
-          : `<button class="primary-button primary-button-full" type="button" data-action="starter-ready">
-              ${icon("play", 18)} Begin Round
-            </button>`
-      }
-    </section>
-  `;
-}
-
 export function DetailHero({ game, saved, onlineAvailable }) {
   const disabled = game.requirementCategory === "online" && !onlineAvailable;
 
@@ -633,24 +590,6 @@ export function VariationCards(variations = []) {
           .join("")}
       </div>
     </section>
-  `;
-}
-
-export function StickyPrimaryAction({ game, onlineAvailable }) {
-  const disabled = game.requirementCategory === "online" && !onlineAvailable;
-  return `
-    <div class="sticky-action">
-      <button
-        class="primary-button primary-button-full"
-        type="button"
-        data-action="start-game"
-        data-game-id="${escapeAttr(game.id)}"
-        ${disabled ? "disabled" : ""}
-      >
-        ${icon(disabled ? "offline" : "play", 18)}
-        ${disabled ? "Unavailable Offline" : "Start Game"}
-      </button>
-    </div>
   `;
 }
 

@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260709-admin4";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260709-admin5";
 import {
   AppShell,
   EmptyState,
@@ -6,23 +6,22 @@ import {
   LoadingSkeleton,
   RandomGameResult,
   RandomGameSetup,
-  StartGameSheet,
   TopAppBar
-} from "./components/components.js?v=20260709-admin4";
-import { AdminRouteScreen } from "./components/admin.js?v=20260709-admin4";
+} from "./components/components.js?v=20260709-admin5";
+import { AdminRouteScreen } from "./components/admin.js?v=20260709-admin5";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260709-admin4";
+} from "./components/screens.js?v=20260709-admin5";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260709-admin4";
+} from "./services/filtering.js?v=20260709-admin5";
 import {
   getLastFilters,
   getPreferences,
@@ -30,14 +29,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260709-admin4";
+} from "./services/storage.js?v=20260709-admin5";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260709-admin4";
+} from "./services/i18n.js?v=20260709-admin5";
 import {
   checkAdminAccess,
   deleteGame,
@@ -60,7 +59,7 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260709-admin4";
+} from "./services/gamesApi.js?v=20260709-admin5";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -105,7 +104,6 @@ const state = {
     },
     result: null
   },
-  starterGameId: "",
   savedIds: new Set(getSavedGameIds()),
   preferences: getPreferences(),
   onlineAvailable: navigator.onLine,
@@ -286,26 +284,6 @@ app.addEventListener("click", async (event) => {
       break;
     case "pick-random":
       pickRandom();
-      break;
-    case "start-game":
-      state.starterGameId = actionTarget.dataset.gameId;
-      render();
-      break;
-    case "close-starter":
-      state.starterGameId = "";
-      render();
-      break;
-    case "starter-ready":
-      showToast("Round shell started. Add a game engine here when ready.");
-      break;
-    case "mock-timer":
-      showToast("60-second timer shell queued.");
-      break;
-    case "mock-first-player":
-      showToast("First player selected: youngest player starts.");
-      break;
-    case "mock-prompt":
-      showToast("Prompt shell ready: generate the next clue here.");
       break;
     case "preference-choice":
       updatePreferenceChoice(key, actionTarget.dataset.mode, value);
@@ -526,8 +504,7 @@ function render() {
   document.body.dataset.language = adminRoute ? "en" : language;
   document.body.classList.toggle(
     "no-scroll",
-    !adminRoute &&
-      (state.filterSheet.open || state.random.openSetup || Boolean(state.random.result) || Boolean(state.starterGameId))
+    !adminRoute && (state.filterSheet.open || state.random.openSetup || Boolean(state.random.result))
   );
   restoreFocus(focusState);
   syncTopBar();
@@ -565,7 +542,6 @@ function renderModals(displayGames) {
     advancedFilters: draft
   }).length;
   const randomMatchCount = getRandomMatchCount(displayGames);
-  const starterGame = state.starterGameId ? displayGames.find((game) => game.id === state.starterGameId) : null;
 
   return `
     ${FilterSheet({
@@ -582,10 +558,6 @@ function renderModals(displayGames) {
     ${RandomGameResult({
       result: state.random.result,
       savedIds: state.savedIds
-    })}
-    ${StartGameSheet({
-      game: starterGame,
-      onlineAvailable: state.onlineAvailable
     })}
   `;
 }
@@ -705,7 +677,6 @@ function closeTransientOverlays() {
   state.filterSheet.open = false;
   state.random.openSetup = false;
   state.random.result = null;
-  state.starterGameId = "";
 }
 
 function updatePreferenceChoice(key, mode, value) {

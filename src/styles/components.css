@@ -422,10 +422,11 @@
 .detail-hero-gradient {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.34) 48%, rgba(0, 0, 0, 0.82) 100%),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.68), transparent 72%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.48) 52%, rgba(0, 0, 0, 0.9) 100%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.16) 72%);
+  pointer-events: none;
 }
 
 .featured-top-row {
@@ -481,7 +482,6 @@
 .detail-section p,
 .empty-state p,
 .variation-card p,
-.starter-panel p,
 .app-info small,
 .toggle-row small {
   margin: 0;
@@ -492,14 +492,19 @@
 
 .featured-copy h3,
 .game-card h3,
-.variation-card h3,
-.starter-panel h3 {
+.variation-card h3 {
   margin: 5px 0 0;
   color: var(--color-text-primary);
   font-size: var(--title-size);
   font-weight: 500;
   line-height: var(--title-line);
   letter-spacing: 0;
+}
+
+.featured-copy p,
+.featured-copy h3,
+.featured-meta {
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.78);
 }
 
 .featured-meta,
@@ -733,7 +738,6 @@
 
 .filter-sheet,
 .random-sheet,
-.starter-sheet,
 .random-result {
   position: fixed;
   right: 0;
@@ -769,8 +773,7 @@
 }
 
 .filter-groups,
-.random-form,
-.starter-tools {
+.random-form {
   display: grid;
   gap: var(--space-5);
   padding: 0 var(--page-x) var(--space-5);
@@ -910,8 +913,7 @@
 }
 
 .reason-list,
-.random-actions,
-.starter-tools {
+.random-actions {
   display: grid;
   gap: var(--space-2);
   margin-top: var(--space-4);
@@ -930,22 +932,6 @@
   grid-template-columns: 1fr;
 }
 
-.starter-panel {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: var(--space-3);
-  margin: 0 var(--page-x) var(--space-4);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-6);
-  background: var(--color-surface-primary);
-}
-
-.starter-panel.is-disabled {
-  color: var(--color-text-disabled);
-}
-
-.starter-icon,
 .empty-icon {
   display: inline-flex;
   align-items: center;
@@ -955,10 +941,6 @@
   border-radius: var(--radius-pill);
   background: var(--color-primary-muted);
   color: var(--color-primary);
-}
-
-.starter-tools {
-  grid-template-columns: 1fr;
 }
 
 .toast-region {
@@ -1042,8 +1024,7 @@
     flex-basis: 348px;
   }
 
-  .random-actions,
-  .starter-tools {
+  .random-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

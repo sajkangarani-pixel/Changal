@@ -1,4 +1,4 @@
-import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260709-admin4";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260709-admin5";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;

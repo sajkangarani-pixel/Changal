@@ -6,8 +6,8 @@ import {
   GAME_TYPES,
   PLAYER_RANGES,
   PLAY_STYLES
-} from "../data/constants.js?v=20260709-admin4";
-import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin4";
+} from "../data/constants.js?v=20260709-admin5";
+import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin5";
 import {
   ActiveFilterSummary,
   DetailHero,
@@ -22,14 +22,13 @@ import {
   SearchField,
   SectionHeader,
   SortControl,
-  StickyPrimaryAction,
   TopAppBar,
   VariationCards,
   advancedFilterCountLabel,
   escapeAttr,
   escapeHtml
-} from "./components.js?v=20260709-admin4";
-import { icon } from "./icons.js?v=20260709-admin4";
+} from "./components.js?v=20260709-admin5";
+import { icon } from "./icons.js?v=20260709-admin5";
 import {
   filterGames,
   formatEquipment,
@@ -40,7 +39,7 @@ import {
   getRelatedGames,
   getRequirementLabel,
   sortGames
-} from "../services/filtering.js?v=20260709-admin4";
+} from "../services/filtering.js?v=20260709-admin5";
 
 export function DiscoverScreen({ state, games, savedIds, preferences }) {
   const criteria = {
@@ -327,7 +326,6 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
         ${GameGrid({ games: related, savedIds })}
       </section>
     </section>
-    ${StickyPrimaryAction({ game, onlineAvailable })}
   `;
 }
 
