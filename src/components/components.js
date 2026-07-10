@@ -7,7 +7,7 @@ import {
   DURATION_RANGES,
   ACTIVITY_LEVELS,
   ENVIRONMENTS
-} from "../data/constants.js?v=20260710-steps1";
+} from "../data/constants.js?v=20260710-hokm-online2";
 import {
   countAdvancedFilters,
   formatDuration,
@@ -16,9 +16,9 @@ import {
   getGameTypeLabel,
   getRequirementLabel,
   summarizeFilters
-} from "../services/filtering.js?v=20260710-steps1";
-import { renderArtwork } from "./artwork.js?v=20260710-steps1";
-import { icon } from "./icons.js?v=20260710-steps1";
+} from "../services/filtering.js?v=20260710-hokm-online2";
+import { renderArtwork } from "./artwork.js?v=20260710-hokm-online2";
+import { icon } from "./icons.js?v=20260710-hokm-online2";
 
 export const navItems = [
   { id: "discover", label: "Discover", icon: "discover", href: "#/" },

@@ -6,8 +6,8 @@ import {
   GAME_TYPES,
   PLAYER_RANGES,
   PLAY_STYLES
-} from "../data/constants.js?v=20260710-steps1";
-import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260710-steps1";
+} from "../data/constants.js?v=20260710-hokm-online2";
+import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260710-hokm-online2";
 import {
   ActiveFilterSummary,
   DetailHero,
@@ -27,8 +27,8 @@ import {
   advancedFilterCountLabel,
   escapeAttr,
   escapeHtml
-} from "./components.js?v=20260710-steps1";
-import { icon } from "./icons.js?v=20260710-steps1";
+} from "./components.js?v=20260710-hokm-online2";
+import { icon } from "./icons.js?v=20260710-hokm-online2";
 import {
   filterGames,
   formatEquipment,
@@ -39,7 +39,7 @@ import {
   getRelatedGames,
   getRequirementLabel,
   sortGames
-} from "../services/filtering.js?v=20260710-steps1";
+} from "../services/filtering.js?v=20260710-hokm-online2";
 
 export function DiscoverScreen({ state, games, savedIds, preferences }) {
   const criteria = {
@@ -309,6 +309,7 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable, guideMode
       <div class="detail-summary">
         <p>${escapeHtml(game.description)}</p>
       </div>
+      ${game.slug === "hokm-4-nafareh" ? HokmDetailStartAction() : ""}
       ${QuickInfoRow(game)}
       <section class="detail-section">
         <h2>Required Equipment</h2>
@@ -320,6 +321,17 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable, guideMode
         <h2>Similar Games</h2>
         ${GameGrid({ games: related, savedIds })}
       </section>
+    </section>
+  `;
+}
+
+function HokmDetailStartAction() {
+  return `
+    <section class="detail-section hokm-detail-start">
+      <button class="primary-button" type="button" data-action="hokm-open-start">
+        ${icon("play", 17)}
+        شروع بازی
+      </button>
     </section>
   `;
 }

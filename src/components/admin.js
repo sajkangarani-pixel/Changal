@@ -1,4 +1,4 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260710-steps1";
+import { GAME_TYPES } from "../data/constants.js?v=20260710-hokm-online2";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
@@ -7,9 +7,9 @@ import {
   hasUsefulQuickGuide,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260710-steps1";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260710-steps1";
-import { icon } from "./icons.js?v=20260710-steps1";
+} from "../services/gamesApi.js?v=20260710-hokm-online2";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-hokm-online2";
+import { icon } from "./icons.js?v=20260710-hokm-online2";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {

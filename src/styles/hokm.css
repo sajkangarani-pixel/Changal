@@ -1,0 +1,691 @@
+.hokm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  align-items: end;
+  padding: var(--space-4) var(--page-x) calc(var(--bottom-safe) + var(--space-4));
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(18px);
+  animation: hokm-fade-in 180ms ease-out both;
+}
+
+.hokm-detail-start {
+  padding: var(--space-4);
+  border: 1px solid rgba(208, 255, 79, 0.16);
+  border-radius: var(--radius-6);
+  background:
+    linear-gradient(135deg, rgba(208, 255, 79, 0.11), transparent 64%),
+    rgba(23, 25, 22, 0.72);
+}
+
+.hokm-detail-start .primary-button {
+  width: 100%;
+}
+
+.hokm-start-sheet {
+  display: grid;
+  gap: var(--space-5);
+  width: min(680px, 100%);
+  max-height: min(86vh, 760px);
+  margin-inline: auto;
+  overflow: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-8);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(208, 255, 79, 0.12), transparent 34%),
+    rgba(18, 21, 17, 0.94);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.46);
+  animation: hokm-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.hokm-sheet-top,
+.hokm-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hokm-sheet-top p,
+.hokm-start-card p,
+.hokm-preview-card h3,
+.hokm-top-title span,
+.hokm-hand-helper {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
+.hokm-sheet-top h2,
+.hokm-start-card h3,
+.hokm-lobby-panel h1,
+.hokm-top-title h1,
+.hokm-trump-panel h2,
+.hokm-result-panel h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--title-size);
+  font-weight: 600;
+  line-height: var(--title-line);
+  letter-spacing: 0;
+}
+
+.hokm-start-grid,
+.hokm-setup-layout {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.hokm-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.hokm-field span {
+  color: var(--color-text-tertiary);
+  font-size: var(--caption-size);
+}
+
+.hokm-field input,
+.hokm-start-card input {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-4);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-primary);
+  padding: 0 var(--space-4);
+}
+
+.hokm-start-card,
+.hokm-preview-card,
+.hokm-state-card,
+.hokm-lobby-panel,
+.hokm-trump-panel,
+.hokm-result-panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-6);
+  background: rgba(23, 25, 22, 0.76);
+}
+
+.hokm-create-card {
+  background:
+    linear-gradient(135deg, rgba(208, 255, 79, 0.1), transparent 62%),
+    rgba(23, 25, 22, 0.76);
+}
+
+.hokm-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-4);
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.hokm-segmented button {
+  min-height: 42px;
+  border-radius: calc(var(--radius-4) - 5px);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.hokm-segmented button.is-selected,
+.hokm-suit-grid button:hover,
+.hokm-suit-grid button:focus-visible {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.hokm-preview-row,
+.hokm-score-strip,
+.hokm-team-preview span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hokm-preview-row span,
+.hokm-team-preview small,
+.hokm-lobby-panel p,
+.hokm-table-prompt,
+.hokm-result-panel p,
+.hokm-error,
+.hokm-status {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
+.hokm-preview-row strong,
+.hokm-score-strip strong {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.hokm-setup-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.hokm-error {
+  color: var(--color-error);
+}
+
+.hokm-status {
+  color: var(--color-primary);
+}
+
+.hokm-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: calc(var(--top-safe) * -1) calc(var(--page-x) * -1) calc(var(--bottom-safe) * -1);
+  padding: calc(var(--top-safe) + var(--space-4)) var(--page-x) calc(var(--bottom-safe) + var(--space-5));
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(208, 255, 79, 0.11), transparent 34%),
+    radial-gradient(circle at 20% 80%, rgba(117, 141, 63, 0.18), transparent 38%),
+    #070806;
+}
+
+.hokm-bg-glow {
+  position: absolute;
+  inset: 8% 10% auto;
+  height: 380px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(208, 255, 79, 0.12), transparent 70%);
+  filter: blur(26px);
+}
+
+.hokm-top {
+  position: relative;
+  z-index: 2;
+  margin-bottom: var(--space-4);
+}
+
+.hokm-top-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.hokm-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hokm-code-pill,
+.hokm-expiry {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-primary);
+  font-size: var(--caption-size);
+}
+
+.hokm-expiry {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+
+.hokm-lobby {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-5);
+}
+
+.hokm-lobby-table,
+.hokm-game-table {
+  position: relative;
+  min-height: min(520px, 56vh);
+  border: 1px solid rgba(208, 255, 79, 0.12);
+  border-radius: 42%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(208, 255, 79, 0.08), transparent 38%),
+    linear-gradient(145deg, #1a261d, #0d130f);
+  box-shadow:
+    inset 0 0 44px rgba(0, 0, 0, 0.55),
+    0 26px 70px rgba(0, 0, 0, 0.44);
+}
+
+.hokm-table-core,
+.hokm-trick-zone {
+  position: absolute;
+  inset: 27% 18%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: var(--space-4);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-8);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.hokm-table-core span,
+.hokm-table-core small,
+.hokm-empty-trick {
+  color: var(--color-text-tertiary);
+  font-size: var(--caption-size);
+}
+
+.hokm-table-core strong {
+  color: var(--color-primary);
+  font-size: var(--h2-size);
+}
+
+.hokm-seat {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: min(214px, 45vw);
+  min-height: 62px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-6);
+  background: rgba(17, 20, 15, 0.88);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  animation: hokm-seat-in 220ms ease-out both;
+}
+
+.hokm-seat-top {
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hokm-seat-bottom {
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hokm-seat-right {
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+}
+
+.hokm-seat-left {
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+}
+
+.hokm-seat.is-turn {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 4px rgba(208, 255, 79, 0.08), 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.hokm-seat.is-you .hokm-seat-avatar,
+.hokm-seat.is-turn .hokm-seat-avatar {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.hokm-seat.is-empty {
+  opacity: 0.72;
+}
+
+.hokm-seat-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.hokm-seat strong,
+.hokm-seat span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hokm-seat strong {
+  color: var(--color-text-primary);
+  font-size: var(--caption-size);
+}
+
+.hokm-seat span,
+.hokm-seat small {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.hokm-seat-tags {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.hokm-seat-tags em {
+  border-radius: var(--radius-pill);
+  padding: 3px var(--space-2);
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.hokm-team-preview,
+.hokm-inline-join {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.hokm-pulse-action:not(:disabled) {
+  animation: hokm-pulse 1600ms ease-in-out infinite;
+}
+
+.hokm-table-screen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.hokm-score-strip {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-6);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hokm-score-strip span {
+  color: var(--color-text-secondary);
+  font-size: var(--caption-size);
+}
+
+.hokm-trick-card {
+  position: absolute;
+  width: 72px;
+  animation: hokm-card-pop 180ms ease-out both;
+}
+
+.hokm-trick-card.is-winner .hokm-card {
+  box-shadow: 0 0 0 3px rgba(208, 255, 79, 0.26), 0 16px 38px rgba(0, 0, 0, 0.34);
+}
+
+.hokm-trick-bottom {
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hokm-trick-top {
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hokm-trick-right {
+  top: 50%;
+  right: 10%;
+  transform: translateY(-50%);
+}
+
+.hokm-trick-left {
+  top: 50%;
+  left: 10%;
+  transform: translateY(-50%);
+}
+
+.hokm-table-prompt {
+  align-self: end;
+  color: var(--color-primary);
+}
+
+.hokm-trump-panel,
+.hokm-result-panel {
+  text-align: center;
+}
+
+.hokm-suit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.hokm-suit-grid button {
+  min-height: 64px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-4);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-primary);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.hokm-suit-grid span {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: 24px;
+}
+
+.hokm-hand-zone {
+  display: grid;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.hokm-hand {
+  display: flex;
+  justify-content: center;
+  min-height: 132px;
+  padding-inline: var(--space-3);
+}
+
+.hokm-card-button {
+  width: clamp(54px, 15vw, 78px);
+  height: clamp(86px, 22vw, 116px);
+  margin-inline: clamp(-22px, -4.8vw, -12px);
+  padding: 0;
+  background: transparent;
+  transform: translateY(var(--card-lift)) rotate(var(--card-rotate));
+  transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+}
+
+.hokm-card-button.is-legal:not(:disabled):hover,
+.hokm-card-button.is-legal:not(:disabled):focus-visible {
+  transform: translateY(-14px) rotate(var(--card-hover-rotate));
+}
+
+.hokm-card-button.is-illegal {
+  opacity: 0.45;
+  filter: grayscale(0.55);
+}
+
+.hokm-card-button.is-pending {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hokm-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, #fffdf4, #d8d8cf);
+  color: #111411;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+}
+
+.hokm-card.is-red {
+  color: #b72135;
+}
+
+.hokm-card-corner {
+  position: absolute;
+  top: 7px;
+  inset-inline-start: 7px;
+  display: grid;
+  gap: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hokm-card-corner small {
+  font-size: 13px;
+}
+
+.hokm-card > strong {
+  font-size: clamp(26px, 7vw, 38px);
+  line-height: 1;
+}
+
+.hokm-card > small {
+  position: absolute;
+  bottom: 7px;
+  color: currentColor;
+  font-size: 11px;
+}
+
+.hokm-expired-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(16px);
+}
+
+.hokm-state-card {
+  position: relative;
+  z-index: 2;
+  margin: 18vh auto 0;
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.hokm-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-pill);
+  animation: hokm-spin 720ms linear infinite;
+}
+
+@media (min-width: 760px) {
+  .hokm-modal-backdrop {
+    align-items: center;
+  }
+
+  .hokm-start-grid,
+  .hokm-setup-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hokm-field,
+  .hokm-preview-card,
+  .hokm-setup-actions {
+    grid-column: 1 / -1;
+  }
+
+  .hokm-lobby {
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+    align-items: center;
+  }
+
+  .hokm-game-table {
+    min-height: min(600px, 58vh);
+  }
+}
+
+@keyframes hokm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hokm-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hokm-seat-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes hokm-card-pop {
+  from {
+    opacity: 0;
+    scale: 0.86;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes hokm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(208, 255, 79, 0.22); }
+  50% { box-shadow: 0 0 0 8px rgba(208, 255, 79, 0); }
+}
+
+@keyframes hokm-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hokm-modal-backdrop,
+  .hokm-start-sheet,
+  .hokm-seat,
+  .hokm-trick-card,
+  .hokm-pulse-action:not(:disabled),
+  .hokm-spinner {
+    animation: none;
+  }
+
+  .hokm-card-button,
+  .hokm-suit-grid button {
+    transition: none;
+  }
+}

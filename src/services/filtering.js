@@ -8,7 +8,7 @@ import {
   PLAYER_RANGES,
   PLAY_STYLES,
   REQUIREMENT_CATEGORIES
-} from "../data/constants.js?v=20260710-steps1";
+} from "../data/constants.js?v=20260710-hokm-online2";
 
 const labelMaps = {
   gameTypes: mapLabels(GAME_TYPES),
