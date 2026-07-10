@@ -1,21 +1,20 @@
 import {
+  formatHokmCountdown,
   formatHokmTimeLeft,
-  getCurrentPlayerSeat,
-  isHokmHost,
   isHokmRoomExpired,
   isHokmRoomJoinable,
   toPersianDigits
-} from "../services/hokmApi.js?v=20260710-hokm-online2";
+} from "../services/hokmApi.js?v=20260710-hokm-stable1";
 import {
   HOKM_SUITS,
-  getLegalCards,
   getSuitLabel,
   getSuitSymbol,
   getTeamForSeat,
+  rotateSeatsForPerspective,
   sortHand
-} from "../services/hokmEngine.js?v=20260710-hokm-online2";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260710-hokm-online2";
-import { icon } from "./icons.js?v=20260710-hokm-online2";
+} from "../services/hokmEngine.js?v=20260710-hokm-stable1";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-hokm-stable1";
+import { icon } from "./icons.js?v=20260710-hokm-stable1";
 
 const SEAT_POSITIONS = {
   1: "bottom",
@@ -23,6 +22,14 @@ const SEAT_POSITIONS = {
   3: "top",
   4: "left"
 };
+
+function seatPositionsFor(currentSeat) {
+  if (!currentSeat) return SEAT_POSITIONS;
+  const perspective = rotateSeatsForPerspective([1, 2, 3, 4], currentSeat);
+  return Object.fromEntries(
+    Object.entries(perspective).map(([position, seat]) => [Number(seat), position])
+  );
+}
 
 export function HokmStartModal({ modal, player }) {
   if (!modal.open) return "";
@@ -188,11 +195,12 @@ export function HokmRouteScreen({ hokm, player }) {
   }
 
   const room = hokm.room;
-  const currentSeat = getCurrentPlayerSeat(room, player);
+  const view = hokm.view || {};
+  const currentSeat = view.currentSeat || null;
   const expired = isHokmRoomExpired(room);
   const content = room.status === "lobby"
-    ? HokmLobby({ room, player, currentSeat, hokm })
-    : HokmGameTable({ room, player, currentSeat, hokm });
+    ? HokmLobby({ room, view, currentSeat, hokm })
+    : HokmGameTable({ room, view, currentSeat, hokm });
 
   return `
     <section class="hokm-shell">
@@ -203,15 +211,16 @@ export function HokmRouteScreen({ hokm, player }) {
   `;
 }
 
-function HokmLobby({ room, player, currentSeat, hokm }) {
-  const host = isHokmHost(room, player);
+function HokmLobby({ room, view, currentSeat, hokm }) {
+  const host = Boolean(view?.isHost);
   const ready = room.seats.length === 4;
+  const seatPositions = seatPositionsFor(currentSeat);
 
   return `
-    ${HokmTopBar({ room, statusLabel: "لابی" })}
+    ${HokmTopBar({ room, view, statusLabel: "لابی" })}
     <section class="hokm-lobby">
       <div class="hokm-lobby-table">
-        ${[1, 2, 3, 4].map((seat) => SeatBadge({ room, seat, currentSeat, state: room.state })).join("")}
+        ${[1, 2, 3, 4].map((seat) => SeatBadge({ room, seat, currentSeat, state: room.publicState, seatPositions })).join("")}
         <div class="hokm-table-core">
           <span>کد میز را برای ۳ نفر دیگر بفرستید</span>
           <strong>${escapeHtml(room.code)}</strong>
@@ -261,42 +270,45 @@ function TeamPreview(room) {
   `;
 }
 
-function HokmGameTable({ room, player, currentSeat, hokm }) {
-  const state = room.state || {};
+function HokmGameTable({ room, view, currentSeat, hokm }) {
+  const state = room.publicState || {};
   const expired = isHokmRoomExpired(room);
-  const myHand = currentSeat ? sortHand(state.hands?.[String(currentSeat)] || [], state.trumpSuit) : [];
-  const legalCards = currentSeat && state.phase === "playing" && Number(state.turnSeat) === Number(currentSeat)
-    ? getLegalCards(myHand, state.currentTrick || [])
-    : [];
-  const legalIds = new Set(legalCards.map((card) => card.id));
+  const phase = state.phase || room.status;
+  const myHand = currentSeat ? sortHand(view?.hand || [], state.trumpSuit) : [];
+  const legalIds = new Set(view?.legalCardIds || []);
+  const seatPositions = seatPositionsFor(currentSeat);
+  const deadlineLabel = state.turnDeadlineAt ? formatHokmCountdown(state.turnDeadlineAt) : "";
 
   return `
-    ${HokmTopBar({ room, statusLabel: "آنلاین" })}
+    ${HokmTopBar({ room, view, statusLabel: "آنلاین" })}
     <section class="hokm-table-screen ${expired ? "is-expired" : ""}">
       <div class="hokm-score-strip">
         <span>تیم ۱: ${toPersianDigits(state.rounds?.team1 || 0)}</span>
         <span>تیم ۲: ${toPersianDigits(state.rounds?.team2 || 0)}</span>
         <span>دست ${toPersianDigits(state.handNumber || 1)} از ${toPersianDigits(room.roundsTarget)}</span>
         ${state.trumpSuit ? `<strong>حکم: ${getSuitLabel(state.trumpSuit)} ${getSuitSymbol(state.trumpSuit)}</strong>` : ""}
+        ${deadlineLabel ? `<strong class="hokm-turn-timer">زمان: ${deadlineLabel}</strong>` : ""}
       </div>
 
       <div class="hokm-game-table">
-        ${[1, 2, 3, 4].map((seat) => SeatBadge({ room, seat, currentSeat, state })).join("")}
+        ${[1, 2, 3, 4].map((seat) => SeatBadge({ room, seat, currentSeat, state, seatPositions })).join("")}
         <div class="hokm-trick-zone">
-          ${TrickCards(state)}
+          ${TrickCards(state, seatPositions)}
           ${StatePrompt({ room, state, currentSeat })}
         </div>
       </div>
 
       ${TrumpSelection({ room, state, currentSeat, busy: hokm.busy })}
-      ${RoundResult({ room, player, state, busy: hokm.busy })}
-      ${PlayerHand({ hand: myHand, legalIds, currentSeat, state, pendingCardId: hokm.pendingCardId })}
+      ${RoundResult({ view, state, busy: hokm.busy })}
+      ${PlayerHand({ hand: myHand, legalIds, currentSeat, phase, state, pendingCardId: hokm.pendingCardId })}
       ${hokm.error ? `<p class="hokm-error hokm-table-error">${escapeHtml(hokm.error)}</p>` : ""}
     </section>
   `;
 }
 
-function HokmTopBar({ room, statusLabel }) {
+function HokmTopBar({ room, view, statusLabel }) {
+  const canLeave = view?.currentSeat;
+  const canCancel = view?.isHost && ["lobby", "trump_selection", "playing", "round_ended"].includes(room.status);
   return `
     <header class="hokm-top">
       <a class="icon-button" href="#/game/hokm-4-nafareh" aria-label="بازگشت">${icon("back", 18)}</a>
@@ -307,21 +319,24 @@ function HokmTopBar({ room, statusLabel }) {
       <div class="hokm-top-actions">
         <button class="hokm-code-pill" type="button" data-action="hokm-copy-code" data-code="${escapeAttr(room.code)}">کد میز: ${escapeHtml(room.code)}</button>
         <span class="hokm-expiry">انقضا: ${formatHokmTimeLeft(room.expiresAt)}</span>
+        ${canCancel ? `<button class="icon-button" type="button" data-action="hokm-cancel-room" aria-label="لغو میز">${icon("x", 17)}</button>` : ""}
+        ${canLeave ? `<button class="icon-button" type="button" data-action="hokm-leave-room" aria-label="خروج از میز">${icon("logout", 17)}</button>` : ""}
       </div>
     </header>
   `;
 }
 
-function SeatBadge({ room, seat, currentSeat, state = {} }) {
+function SeatBadge({ room, seat, currentSeat, state = {}, seatPositions }) {
   const player = room.seats.find((item) => item.seat === seat);
   const isCurrent = Number(currentSeat) === Number(seat);
-  const isTurn = Number(state.turnSeat) === Number(seat);
+  const isTurn = Number(state.currentTurnSeat || state.turnSeat) === Number(seat);
   const isHakim = Number(state.hakimSeat) === Number(seat);
   const team = getTeamForSeat(seat) === "team1" ? "تیم ۱" : "تیم ۲";
-  const handCount = state.hands?.[String(seat)]?.length || 0;
+  const handCount = state.handCounts?.[String(seat)] || state.handCounts?.[seat] || 0;
+  const position = seatPositions?.[seat] || SEAT_POSITIONS[seat];
 
   return `
-    <div class="hokm-seat hokm-seat-${SEAT_POSITIONS[seat]} ${isTurn ? "is-turn" : ""} ${isCurrent ? "is-you" : ""} ${!player ? "is-empty" : ""}">
+    <div class="hokm-seat hokm-seat-${position} ${isTurn ? "is-turn" : ""} ${isCurrent ? "is-you" : ""} ${!player ? "is-empty" : ""} ${player?.connected === false ? "is-disconnected" : ""}">
       <div class="hokm-seat-avatar">${player ? escapeHtml(player.playerName.slice(0, 1)) : toPersianDigits(seat)}</div>
       <div>
         <strong>${escapeHtml(player?.playerName || "در انتظار بازیکن...")}</strong>
@@ -329,20 +344,20 @@ function SeatBadge({ room, seat, currentSeat, state = {} }) {
       </div>
       <div class="hokm-seat-tags">
         ${isHakim ? `<em>حاکم</em>` : ""}
-        ${handCount && !isCurrent ? `<small>${toPersianDigits(handCount)} کارت</small>` : ""}
+        ${handCount ? `<small>${toPersianDigits(handCount)} کارت</small>` : ""}
         ${player && player.connected === false ? `<small>قطع ارتباط</small>` : ""}
       </div>
     </div>
   `;
 }
 
-function TrickCards(state) {
+function TrickCards(state, seatPositions) {
   const trick = state.currentTrick?.length ? state.currentTrick : state.lastTrick || [];
   if (!trick.length) return `<div class="hokm-empty-trick">منتظر اولین کارت...</div>`;
   return trick
     .map(
       (play) => `
-        <div class="hokm-trick-card hokm-trick-${SEAT_POSITIONS[play.seat]} ${Number(state.lastTrickWinnerSeat) === Number(play.seat) ? "is-winner" : ""}">
+        <div class="hokm-trick-card hokm-trick-${seatPositions?.[play.seat] || SEAT_POSITIONS[play.seat]} ${Number(state.lastTrickWinnerSeat) === Number(play.seat) ? "is-winner" : ""}">
           ${CardFace(play.card)}
         </div>
       `
@@ -355,7 +370,7 @@ function StatePrompt({ state, currentSeat }) {
     return `<p class="hokm-table-prompt">${Number(state.hakimSeat) === Number(currentSeat) ? "حکم را انتخاب کنید" : "حاکم در حال انتخاب حکم است..."}</p>`;
   }
   if (state.phase === "playing") {
-    return `<p class="hokm-table-prompt">${Number(state.turnSeat) === Number(currentSeat) ? "نوبت شماست" : "منتظر بازیکن دیگر..."}</p>`;
+    return `<p class="hokm-table-prompt">${Number(state.currentTurnSeat || state.turnSeat) === Number(currentSeat) ? "نوبت شماست" : "منتظر بازیکن دیگر..."}</p>`;
   }
   return "";
 }
@@ -383,33 +398,33 @@ function TrumpSelection({ state, currentSeat, busy }) {
   `;
 }
 
-function RoundResult({ room, player, state, busy }) {
-  if (!["round_ended", "finished"].includes(state.phase)) return "";
-  const host = isHokmHost(room, player);
+function RoundResult({ view, state, busy }) {
+  if (!["round_ended", "match_finished"].includes(state.phase)) return "";
+  const host = Boolean(view?.isHost);
   const winner = state.roundWinnerTeam === "team1" ? "تیم ۱" : "تیم ۲";
 
   return `
     <section class="hokm-result-panel">
-      <h2>${state.phase === "finished" ? "بازی تمام شد" : "پایان دست"}</h2>
+      <h2>${state.phase === "match_finished" ? "بازی تمام شد" : "پایان دست"}</h2>
       <p>${winner} این دست را برد.</p>
       ${
         state.phase === "round_ended" && host
           ? `<button class="primary-button" type="button" data-action="hokm-next-round" ${busy ? "disabled" : ""}>شروع دست بعدی</button>`
           : ""
       }
-      ${state.phase === "finished" ? `<a class="secondary-button" href="#/game/hokm-4-nafareh">ساخت میز جدید</a>` : ""}
+      ${state.phase === "match_finished" ? `<a class="secondary-button" href="#/game/hokm-4-nafareh">ساخت میز جدید</a>` : ""}
     </section>
   `;
 }
 
-function PlayerHand({ hand, legalIds, currentSeat, state, pendingCardId }) {
+function PlayerHand({ hand, legalIds, currentSeat, phase, state, pendingCardId }) {
   if (!currentSeat) return "";
-  const isMyTurn = state.phase === "playing" && Number(state.turnSeat) === Number(currentSeat);
+  const isMyTurn = phase === "playing" && Number(state.currentTurnSeat || state.turnSeat) === Number(currentSeat);
   const count = Math.max(1, hand.length);
 
   return `
     <section class="hokm-hand-zone" aria-label="کارت‌های شما">
-      <div class="hokm-hand-helper">${isMyTurn ? "نوبت شماست" : state.phase === "playing" ? "منتظر بازیکن دیگر..." : "کارت‌های شما"}</div>
+      <div class="hokm-hand-helper">${isMyTurn ? "نوبت شماست" : phase === "playing" ? "منتظر بازیکن دیگر..." : "کارت‌های شما"}</div>
       <div class="hokm-hand" style="--card-count:${count}">
         ${hand
           .map((card, index) => {

@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-hokm-online2";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-hokm-stable1";
 import {
   AppShell,
   EmptyState,
@@ -7,22 +7,22 @@ import {
   RandomGameResult,
   RandomGameSetup,
   TopAppBar
-} from "./components/components.js?v=20260710-hokm-online2";
-import { AdminRouteScreen } from "./components/admin.js?v=20260710-hokm-online2";
-import { HokmRouteScreen, HokmStartModal } from "./components/hokm.js?v=20260710-hokm-online2";
+} from "./components/components.js?v=20260710-hokm-stable1";
+import { AdminRouteScreen } from "./components/admin.js?v=20260710-hokm-stable1";
+import { HokmRouteScreen, HokmStartModal } from "./components/hokm.js?v=20260710-hokm-stable1";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260710-hokm-online2";
+} from "./components/screens.js?v=20260710-hokm-stable1";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260710-hokm-online2";
+} from "./services/filtering.js?v=20260710-hokm-stable1";
 import {
   getLastFilters,
   getPreferences,
@@ -30,14 +30,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260710-hokm-online2";
+} from "./services/storage.js?v=20260710-hokm-stable1";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260710-hokm-online2";
+} from "./services/i18n.js?v=20260710-hokm-stable1";
 import {
   assignImportedFiltersToGame,
   checkAdminAccess,
@@ -65,31 +65,26 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260710-hokm-online2";
+} from "./services/gamesApi.js?v=20260710-hokm-stable1";
 import {
+  cancelHokmRoom,
   createHokmRoom,
   expireHokmRoom,
-  fetchHokmRoom,
-  getCurrentPlayerSeat,
+  getHokmView,
   getHokmPlayer,
-  isHokmHost,
+  heartbeatHokmRoom,
   isHokmRoomExpired,
   joinHokmRoom,
   leaveHokmRoom,
-  mapHokmError,
   normalizeHokmCode,
+  playHokmCard,
   saveHokmPlayerName,
+  selectHokmTrump,
+  setHokmRoomRounds,
+  startHokmHand,
+  startHokmNextRound,
   subscribeToHokmRoom,
-  updateHokmRoomSettings,
-  updateHokmRoomState
-} from "./services/hokmApi.js?v=20260710-hokm-online2";
-import {
-  applyCardPlay,
-  createInitialGameState,
-  dealRemainingCards,
-  startFirstHand,
-  startNextRound
-} from "./services/hokmEngine.js?v=20260710-hokm-online2";
+} from "./services/hokmApi.js?v=20260710-hokm-stable1";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -227,6 +222,7 @@ window.addEventListener("beforeunload", (event) => {
 
 window.addEventListener("online", () => {
   state.onlineAvailable = true;
+  if (state.route.name === "hokm") refetchCurrentHokmView({ silent: true });
   render();
 });
 
@@ -235,11 +231,23 @@ window.addEventListener("offline", () => {
   render();
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.route.name === "hokm") {
+    refetchCurrentHokmView({ silent: true });
+  }
+});
+
 window.addEventListener("scroll", syncTopBar, { passive: true });
+
+window.setInterval(() => {
+  if (state.route.name !== "hokm") return;
+  render();
+}, 1000);
 
 window.setInterval(() => {
   if (state.route.name !== "hokm" && !state.hokmStart.open) return;
   maybeExpireCurrentHokmRoom();
+  heartbeatCurrentHokmRoom();
   render();
 }, 30000);
 
@@ -395,6 +403,9 @@ app.addEventListener("click", async (event) => {
       break;
     case "hokm-leave-room":
       handleHokmLeaveRoom();
+      break;
+    case "hokm-cancel-room":
+      handleHokmCancelRoom();
       break;
     case "admin-logout":
       handleAdminLogout();
@@ -900,6 +911,7 @@ function emptyHokmGameState(patch = {}) {
   return {
     roomCode: "",
     room: null,
+    view: null,
     loading: false,
     busy: false,
     error: "",
@@ -940,12 +952,12 @@ async function handleHokmCreateSetup() {
   render();
 
   try {
-    const room = await createHokmRoom(hokmPlayer, state.hokmStart.roundsTarget);
+    const result = await createHokmRoom(hokmPlayer, state.hokmStart.roundsTarget);
     state.hokmStart = {
       ...state.hokmStart,
       mode: "setup",
-      setupRoom: room,
-      roundsTarget: room.roundsTarget,
+      setupRoom: result.room,
+      roundsTarget: result.room.roundsTarget,
       status: "میز ساخته شد.",
       loading: false
     };
@@ -973,9 +985,9 @@ async function handleHokmRoundSelect(roundsTarget) {
   render();
 
   try {
-    const room = await updateHokmRoomSettings(state.hokmStart.setupRoom.code, hokmPlayer, roundsTarget);
-    state.hokmStart.setupRoom = room;
-    state.hokmStart.roundsTarget = room.roundsTarget;
+    const result = await setHokmRoomRounds(state.hokmStart.setupRoom.code, hokmPlayer, roundsTarget);
+    state.hokmStart.setupRoom = result.room;
+    state.hokmStart.roundsTarget = result.room.roundsTarget;
     state.hokmStart.status = "تنظیمات ذخیره شد.";
   } catch (error) {
     state.hokmStart.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
@@ -1008,9 +1020,9 @@ async function handleHokmJoinFromModal() {
   render();
 
   try {
-    const room = await joinHokmRoom(code, hokmPlayer);
+    const result = await joinHokmRoom(code, hokmPlayer);
     state.hokmStart = emptyHokmStartState();
-    location.hash = `#/hokm/${encodeURIComponent(room.code)}`;
+    location.hash = `#/hokm/${encodeURIComponent(result.room.code)}`;
   } catch (error) {
     state.hokmStart.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
     state.hokmStart.status = "";
@@ -1028,7 +1040,7 @@ async function handleHokmJoinCurrentRoom() {
   render();
 
   try {
-    state.hokmGame.room = await joinHokmRoom(room.code, hokmPlayer);
+    applyHokmResult(await joinHokmRoom(room.code, hokmPlayer));
   } catch (error) {
     state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
   } finally {
@@ -1071,22 +1083,19 @@ async function loadHokmRoom(roomCode) {
   render();
 
   try {
-    const room = await fetchHokmRoom(roomCode);
-    if (!room) {
+    const result = await getHokmView(roomCode, hokmPlayer);
+    if (!result?.room) {
       state.hokmGame.error = "میزی با این کد پیدا نشد.";
     } else {
-      state.hokmGame.room = room;
+      applyHokmResult(result);
       hokmUnsubscribe = subscribeToHokmRoom(
         roomCode,
-        (nextRoom) => {
-          state.hokmGame.room = nextRoom;
-          state.hokmGame.roomCode = nextRoom.code;
-          state.hokmGame.error = "";
-          render();
+        () => {
+          refetchCurrentHokmView({ silent: true });
         },
         () => {
           state.hokmGame.error = "ارتباط زنده قطع شد. بازی دوباره به‌روزرسانی می‌شود.";
-          refetchCurrentHokmRoom();
+          refetchCurrentHokmView({ silent: true });
         }
       );
     }
@@ -1104,12 +1113,12 @@ function cleanupHokmSubscription() {
   hokmUnsubscribe = null;
 }
 
-async function refetchCurrentHokmRoom() {
+async function refetchCurrentHokmView({ silent = false } = {}) {
   if (!state.hokmGame.roomCode) return;
   try {
-    const room = await fetchHokmRoom(state.hokmGame.roomCode);
-    if (room) state.hokmGame.room = room;
-    showToast("بازی به‌روزرسانی شد.");
+    const result = await getHokmView(state.hokmGame.roomCode, hokmPlayer);
+    if (result?.room) applyHokmResult(result);
+    if (!silent) showToast("بازی به‌روزرسانی شد.");
   } catch {
     state.hokmGame.error = "ارتباط برقرار نشد. دوباره تلاش کنید.";
   } finally {
@@ -1120,45 +1129,50 @@ async function refetchCurrentHokmRoom() {
 async function handleHokmStartHand() {
   const room = state.hokmGame.room;
   if (!room || state.hokmGame.busy) return;
-  if (!isHokmHost(room, hokmPlayer) || room.seats.length < 4) return;
-
-  const nextState = startFirstHand(createInitialGameState(room.roundsTarget));
-  await commitHokmState(nextState);
+  state.hokmGame.busy = true;
+  state.hokmGame.error = "";
+  render();
+  try {
+    applyHokmResult(await startHokmHand(room.code, hokmPlayer));
+  } catch (error) {
+    state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
+  } finally {
+    state.hokmGame.busy = false;
+    render();
+  }
 }
 
 async function handleHokmSelectTrump(suit) {
   const room = state.hokmGame.room;
-  const seat = getCurrentPlayerSeat(room, hokmPlayer);
-  if (!room || !seat || state.hokmGame.busy) return;
-  if (room.state?.phase !== "trump_selection" || Number(room.state.hakimSeat) !== Number(seat)) return;
-
-  const dealt = dealRemainingCards(room.state.deck || [], room.state.hands || {}, suit);
-  const nextState = {
-    ...room.state,
-    phase: "playing",
-    trumpSuit: suit,
-    deck: dealt.deck,
-    hands: dealt.hands,
-    turnSeat: room.state.hakimSeat,
-    message: "trump_selected"
-  };
-  await commitHokmState(nextState);
+  if (!room || !suit || state.hokmGame.busy) return;
+  state.hokmGame.busy = true;
+  state.hokmGame.error = "";
+  render();
+  try {
+    applyHokmResult(await selectHokmTrump(room.code, hokmPlayer, suit));
+  } catch (error) {
+    state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
+  } finally {
+    state.hokmGame.busy = false;
+    render();
+  }
 }
 
 async function handleHokmPlayCard(cardId) {
   const room = state.hokmGame.room;
-  const seat = getCurrentPlayerSeat(room, hokmPlayer);
-  if (!room || !seat || !cardId || state.hokmGame.busy) return;
+  if (!room || !cardId || state.hokmGame.busy) return;
 
   state.hokmGame.pendingCardId = cardId;
+  state.hokmGame.busy = true;
   state.hokmGame.error = "";
   render();
 
   try {
-    const nextState = applyCardPlay(room.state, seat, cardId);
-    await commitHokmState(nextState);
+    applyHokmResult(await playHokmCard(room.code, hokmPlayer, cardId));
   } catch (error) {
-    state.hokmGame.error = hokmEngineErrorMessage(error);
+    state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
+  } finally {
+    state.hokmGame.busy = false;
     state.hokmGame.pendingCardId = "";
     render();
   }
@@ -1166,9 +1180,18 @@ async function handleHokmPlayCard(cardId) {
 
 async function handleHokmNextRound() {
   const room = state.hokmGame.room;
-  if (!room || state.hokmGame.busy || room.state?.phase !== "round_ended") return;
-  if (!isHokmHost(room, hokmPlayer)) return;
-  await commitHokmState(startNextRound(room.state));
+  if (!room || state.hokmGame.busy || room.status !== "round_ended") return;
+  state.hokmGame.busy = true;
+  state.hokmGame.error = "";
+  render();
+  try {
+    applyHokmResult(await startHokmNextRound(room.code, hokmPlayer));
+  } catch (error) {
+    state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
+  } finally {
+    state.hokmGame.busy = false;
+    render();
+  }
 }
 
 async function handleHokmLeaveRoom() {
@@ -1188,28 +1211,18 @@ async function handleHokmLeaveRoom() {
   }
 }
 
-async function commitHokmState(nextState) {
+async function handleHokmCancelRoom() {
   const room = state.hokmGame.room;
   if (!room || state.hokmGame.busy) return;
+  if (!window.confirm("این میز لغو شود؟")) return;
   state.hokmGame.busy = true;
   state.hokmGame.error = "";
   render();
 
   try {
-    const updated = await updateHokmRoomState({
-      code: room.code,
-      player: hokmPlayer,
-      expectedVersion: room.stateVersion,
-      nextState,
-      nextStatus: hokmStatusFromPhase(nextState.phase)
-    });
-    state.hokmGame.room = updated;
+    applyHokmResult(await cancelHokmRoom(room.code, hokmPlayer));
   } catch (error) {
-    if (error.message === mapHokmError("conflict")) {
-      await refetchCurrentHokmRoom();
-    } else {
-      state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
-    }
+    state.hokmGame.error = error.message || "ارتباط برقرار نشد. دوباره تلاش کنید.";
   } finally {
     state.hokmGame.busy = false;
     state.hokmGame.pendingCardId = "";
@@ -1222,8 +1235,7 @@ async function maybeExpireCurrentHokmRoom() {
   if (!room || state.hokmGame.expireRequested || room.status === "expired" || !isHokmRoomExpired(room)) return;
   state.hokmGame.expireRequested = true;
   try {
-    const expiredRoom = await expireHokmRoom(room.code);
-    if (expiredRoom) state.hokmGame.room = expiredRoom;
+    applyHokmResult(await expireHokmRoom(room.code, hokmPlayer));
   } catch {
     // The UI already blocks expired rooms; RPC cleanup is a best-effort convenience.
   } finally {
@@ -1231,26 +1243,28 @@ async function maybeExpireCurrentHokmRoom() {
   }
 }
 
+async function heartbeatCurrentHokmRoom() {
+  const room = state.hokmGame.room;
+  if (state.route.name !== "hokm" || !room || room.status === "expired") return;
+  try {
+    applyHokmResult(await heartbeatHokmRoom(room.code, hokmPlayer));
+  } catch {
+    // Heartbeat is best effort; realtime and visibility refetch still keep the view fresh.
+  }
+}
+
+function applyHokmResult(result) {
+  if (!result?.room) return;
+  state.hokmGame.room = result.room;
+  state.hokmGame.view = result.view || state.hokmGame.view;
+  state.hokmGame.roomCode = result.room.code || state.hokmGame.roomCode;
+  state.hokmGame.error = "";
+}
+
 function persistHokmPlayerName(name) {
   const nextPlayer = saveHokmPlayerName(name || "بازیکن");
   Object.assign(hokmPlayer, nextPlayer);
   return hokmPlayer;
-}
-
-function hokmStatusFromPhase(phase) {
-  if (phase === "trump_selection") return "trump_selection";
-  if (phase === "playing") return "playing";
-  if (phase === "round_ended") return "round_ended";
-  if (phase === "finished") return "finished";
-  return "lobby";
-}
-
-function hokmEngineErrorMessage(error) {
-  const key = error?.message || "";
-  if (key === "not_your_turn") return "نوبت شما نیست.";
-  if (key === "must_follow_suit") return "باید خال زمینه را بازی کنید.";
-  if (key === "card_not_found") return "این کارت در دست شما نیست.";
-  return "ارتباط برقرار نشد. دوباره تلاش کنید.";
 }
 
 async function bootstrapAdminAuth() {

@@ -243,6 +243,11 @@
   color: var(--color-text-secondary);
 }
 
+.hokm-top-actions .icon-button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
 .hokm-lobby {
   position: relative;
   z-index: 1;
@@ -345,6 +350,10 @@
   opacity: 0.72;
 }
 
+.hokm-seat.is-disconnected {
+  border-color: rgba(255, 193, 104, 0.32);
+}
+
 .hokm-seat-avatar {
   display: inline-flex;
   align-items: center;
@@ -422,6 +431,11 @@
 .hokm-score-strip span {
   color: var(--color-text-secondary);
   font-size: var(--caption-size);
+}
+
+.hokm-turn-timer {
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .hokm-trick-card {
@@ -520,6 +534,10 @@
 .hokm-card-button.is-illegal {
   opacity: 0.45;
   filter: grayscale(0.55);
+}
+
+.hokm-card-button.is-illegal:not(:disabled):active {
+  animation: hokm-shake 180ms ease-in-out;
 }
 
 .hokm-card-button.is-pending {
@@ -665,6 +683,19 @@
   }
 }
 
+@keyframes hokm-shake {
+  0%,
+  100% {
+    transform: translateX(0) translateY(var(--card-lift)) rotate(var(--card-rotate));
+  }
+  35% {
+    transform: translateX(-5px) translateY(var(--card-lift)) rotate(var(--card-rotate));
+  }
+  70% {
+    transform: translateX(5px) translateY(var(--card-lift)) rotate(var(--card-rotate));
+  }
+}
+
 @keyframes hokm-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(208, 255, 79, 0.22); }
   50% { box-shadow: 0 0 0 8px rgba(208, 255, 79, 0); }
@@ -680,6 +711,7 @@
   .hokm-seat,
   .hokm-trick-card,
   .hokm-pulse-action:not(:disabled),
+  .hokm-card-button.is-illegal:not(:disabled):active,
   .hokm-spinner {
     animation: none;
   }

@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
 import {
   applyCardPlay,
+  chooseAutoPlayCard,
+  chooseAutoTrump,
   createDeck,
-  createInitialGameState,
+  createInitialPublicState,
   dealFirstFive,
   dealRemainingCards,
   getLegalCards,
+  getRoundWinner,
   getTeamForSeat,
   isMatchFinished,
   isRoundFinished,
   resolveTrickWinner,
+  rotateSeatsForPerspective,
   shuffleDeck
 } from "../src/services/hokmEngine.js";
 
@@ -23,6 +27,7 @@ assert.equal(new Set(shuffled.map((card) => card.id)).size, 52, "shuffle keeps u
 
 const firstDeal = dealFirstFive(shuffled, 2);
 assert.equal(firstDeal.hands[2].length, 5, "hakim receives first five cards");
+assert.equal(firstDeal.hands[1].length, 0, "non-hakim receives no cards in first deal");
 const fullDeal = dealRemainingCards(firstDeal.deck, firstDeal.hands);
 assert.deepEqual(
   Object.values(fullDeal.hands).map((hand) => hand.length),
@@ -69,13 +74,45 @@ assert.equal(getTeamForSeat(1), "team1", "seat 1 belongs to team 1");
 assert.equal(getTeamForSeat(3), "team1", "seat 3 belongs to team 1");
 assert.equal(getTeamForSeat(2), "team2", "seat 2 belongs to team 2");
 assert.equal(getTeamForSeat(4), "team2", "seat 4 belongs to team 2");
+assert.equal(getRoundWinner(7, 2), "team1", "team 1 wins at 7 tricks");
 assert.equal(isRoundFinished(7, 2), true, "first team to 7 tricks wins round");
 assert.equal(isMatchFinished(3, 1, 3), true, "match ends at rounds target");
 
+assert.equal(
+  chooseAutoTrump([
+    { id: "2S", suit: "spades", value: 2 },
+    { id: "AS", suit: "spades", value: 14 },
+    { id: "KS", suit: "spades", value: 13 },
+    { id: "2H", suit: "hearts", value: 2 }
+  ]),
+  "spades",
+  "auto trump chooses a valid strongest suit"
+);
+
+assert.equal(
+  chooseAutoPlayCard(
+    [
+      { id: "2S", suit: "spades", value: 2 },
+      { id: "AH", suit: "hearts", value: 14 }
+    ],
+    [{ seat: 1, card: { id: "5S", suit: "spades", value: 5 } }],
+    "hearts"
+  ).id,
+  "2S",
+  "auto play chooses a legal card"
+);
+
+assert.deepEqual(
+  rotateSeatsForPerspective([1, 2, 3, 4], 2),
+  { bottom: 2, right: 3, top: 4, left: 1 },
+  "perspective rotation puts current player at bottom"
+);
+
 const state = {
-  ...createInitialGameState(3),
+  ...createInitialPublicState(3),
   phase: "playing",
   trumpSuit: "hearts",
+  currentTurnSeat: 1,
   turnSeat: 1,
   hands: {
     1: [{ id: "2S", suit: "spades", value: 2 }],
@@ -87,6 +124,6 @@ const state = {
 };
 const nextState = applyCardPlay(state, 1, "2S");
 assert.equal(nextState.hands[1].length, 0, "played card leaves hand");
-assert.equal(nextState.turnSeat, 2, "turn advances clockwise");
+assert.equal(nextState.currentTurnSeat, 2, "trick winner or next player starts next turn");
 
 console.log("hokmEngine tests passed");

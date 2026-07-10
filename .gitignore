@@ -30,3 +30,5 @@ Thumbs.db
 .cache/
 .parcel-cache/
 .vite/
+*.zip
+reference/

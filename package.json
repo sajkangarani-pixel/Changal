@@ -6,6 +6,6 @@
   "scripts": {
     "start": "python3 -m http.server 4174",
     "serve": "python3 -m http.server 4174",
-    "test:hokm": "node tests/hokmEngine.test.mjs"
+    "test:hokm": "node tests/hokmEngine.test.mjs && node tests/hokmApi.contract.test.mjs"
   }
 }

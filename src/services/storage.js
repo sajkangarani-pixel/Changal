@@ -1,4 +1,4 @@
-import { DEFAULT_PREFERENCES } from "../data/constants.js?v=20260710-hokm-online2";
+import { DEFAULT_PREFERENCES } from "../data/constants.js?v=20260710-hokm-stable1";
 
 const STORAGE_KEYS = {
   savedGames: "changal.savedGames",

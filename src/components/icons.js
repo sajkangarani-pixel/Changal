@@ -45,6 +45,8 @@ const icons = {
     '<path d="m8 5 12 7-12 7z"></path>',
   reset:
     '<path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path>',
+  logout:
+    '<path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 19V5a2 2 0 0 0-2-2h-6"></path><path d="M13 21h6a2 2 0 0 0 2-2"></path>',
   check:
     '<path d="m20 6-11 11-5-5"></path>',
   plus:

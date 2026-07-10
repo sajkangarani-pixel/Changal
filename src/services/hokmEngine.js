@@ -73,19 +73,30 @@ export function getTeamForSeat(seat) {
   return Number(seat) === 1 || Number(seat) === 3 ? "team1" : "team2";
 }
 
-export function getNextSeat(seat) {
-  return Number(seat) === 4 ? 1 : Number(seat) + 1;
-}
-
 export function getPartnerSeat(seat) {
   const normalized = Number(seat);
   return normalized <= 2 ? normalized + 2 : normalized - 2;
+}
+
+export function getNextSeat(seat) {
+  return Number(seat) === 4 ? 1 : Number(seat) + 1;
 }
 
 export function getSeatOrderFrom(startSeat) {
   const order = [Number(startSeat)];
   while (order.length < 4) order.push(getNextSeat(order[order.length - 1]));
   return order;
+}
+
+export function rotateSeatsForPerspective(seats = [1, 2, 3, 4], currentSeat = 1) {
+  const normalizedSeat = Number(currentSeat) || 1;
+  const order = getSeatOrderFrom(normalizedSeat);
+  return {
+    bottom: seats.find((seat) => Number(seat) === order[0]) ?? order[0],
+    right: seats.find((seat) => Number(seat) === order[1]) ?? order[1],
+    top: seats.find((seat) => Number(seat) === order[2]) ?? order[2],
+    left: seats.find((seat) => Number(seat) === order[3]) ?? order[3]
+  };
 }
 
 export function dealFirstFive(deck, hakimSeat) {
@@ -127,7 +138,7 @@ export function getLegalCards(hand = [], currentTrick = [], ledSuit = getLedSuit
 }
 
 export function canPlayCard(hand, card, currentTrick) {
-  return getLegalCards(hand, currentTrick).some((legalCard) => legalCard.id === card.id);
+  return getLegalCards(hand, currentTrick).some((legalCard) => legalCard.id === card?.id);
 }
 
 export function resolveTrickWinner(currentTrick = [], trumpSuit = "") {
@@ -141,22 +152,61 @@ export function resolveTrickWinner(currentTrick = [], trumpSuit = "") {
   return candidates.reduce((winner, play) => (play.card.value > winner.card.value ? play : winner), candidates[0]);
 }
 
+export function getRoundWinner(team1Tricks, team2Tricks) {
+  if (Number(team1Tricks) >= 7) return "team1";
+  if (Number(team2Tricks) >= 7) return "team2";
+  return "";
+}
+
+export function isRoundFinished(team1Tricks, team2Tricks) {
+  return Boolean(getRoundWinner(team1Tricks, team2Tricks));
+}
+
+export function isMatchFinished(team1Rounds, team2Rounds, roundsTarget) {
+  return Number(team1Rounds) >= Number(roundsTarget) || Number(team2Rounds) >= Number(roundsTarget);
+}
+
+export function chooseAutoTrump(hand = []) {
+  const suitScores = Object.fromEntries(HOKM_SUITS.map((suit) => [suit, 0]));
+  for (const card of hand) {
+    suitScores[card.suit] += 1 + Math.max(0, Number(card.value || 0) - 10) * 0.2;
+  }
+
+  return HOKM_SUITS.reduce((bestSuit, suit) => {
+    if (suitScores[suit] > suitScores[bestSuit]) return suit;
+    return bestSuit;
+  }, HOKM_SUITS[0]);
+}
+
+export function chooseAutoPlayCard(hand = [], currentTrick = [], trumpSuit = "") {
+  const legalCards = getLegalCards(hand, currentTrick);
+  if (!legalCards.length) return null;
+  return [...legalCards].sort((a, b) => {
+    const trumpDelta = Number(a.suit === trumpSuit) - Number(b.suit === trumpSuit);
+    return trumpDelta || Number(a.value || 0) - Number(b.value || 0);
+  })[0];
+}
+
 export function applyCardPlay(state, seat, cardId) {
   const playerSeat = String(seat);
-  if (state.phase !== "playing") throw new Error("game_not_playing");
-  if (String(state.turnSeat) !== playerSeat) throw new Error("not_your_turn");
+  if (state.phase !== "playing") throw new Error("invalid_phase");
+  if (String(state.currentTurnSeat || state.turnSeat) !== playerSeat) throw new Error("not_your_turn");
 
   const hands = cloneHands(state.hands);
   const hand = hands[playerSeat] || [];
   const card = hand.find((item) => item.id === cardId);
   if (!card) throw new Error("card_not_found");
-  if (!canPlayCard(hand, card, state.currentTrick || [])) throw new Error("must_follow_suit");
+  if (!canPlayCard(hand, card, state.currentTrick || [])) throw new Error("illegal_card");
 
   hands[playerSeat] = hand.filter((item) => item.id !== cardId);
   const currentTrick = [...(state.currentTrick || []), { seat: Number(playerSeat), card }];
+  const handCounts = Object.fromEntries(
+    Object.entries(hands).map(([handSeat, cards]) => [handSeat, cards.length])
+  );
   let next = {
     ...state,
     hands,
+    handCounts,
     currentTrick,
     lastTrick: state.lastTrick || [],
     lastTrickWinnerSeat: state.lastTrickWinnerSeat || null,
@@ -164,7 +214,8 @@ export function applyCardPlay(state, seat, cardId) {
   };
 
   if (currentTrick.length < 4) {
-    next.turnSeat = getNextSeat(playerSeat);
+    next.currentTurnSeat = getNextSeat(playerSeat);
+    next.turnSeat = next.currentTurnSeat;
     return next;
   }
 
@@ -182,27 +233,32 @@ export function applyCardPlay(state, seat, cardId) {
     currentTrick: [],
     lastTrick: currentTrick,
     lastTrickWinnerSeat: winner.seat,
+    currentTurnSeat: winner.seat,
     turnSeat: winner.seat,
     message: "trick_won"
   };
 
-  if (isRoundFinished(tricks.team1, tricks.team2)) {
+  const roundWinnerTeam = getRoundWinner(tricks.team1, tricks.team2);
+  if (roundWinnerTeam) {
     const rounds = {
       team1: Number(state.rounds?.team1 || 0),
       team2: Number(state.rounds?.team2 || 0)
     };
-    rounds[winningTeam] += 1;
+    rounds[roundWinnerTeam] += 1;
     const hakimTeam = getTeamForSeat(state.hakimSeat);
-    const nextHakimSeat = winningTeam === hakimTeam ? state.hakimSeat : getNextSeat(state.hakimSeat);
+    const nextHakimSeat = roundWinnerTeam === hakimTeam ? state.hakimSeat : getNextSeat(state.hakimSeat);
     const finished = isMatchFinished(rounds.team1, rounds.team2, state.roundsTarget);
 
     return {
       ...next,
-      phase: finished ? "finished" : "round_ended",
+      phase: finished ? "match_finished" : "round_ended",
       rounds,
-      roundWinnerTeam: winningTeam,
-      hakimSeat: nextHakimSeat,
+      roundWinnerTeam,
+      matchWinnerTeam: finished ? roundWinnerTeam : "",
+      nextHakimSeat,
+      currentTurnSeat: null,
       turnSeat: null,
+      turnDeadlineAt: null,
       message: finished ? "match_finished" : "round_won"
     };
   }
@@ -210,78 +266,36 @@ export function applyCardPlay(state, seat, cardId) {
   return next;
 }
 
-export function isRoundFinished(team1Tricks, team2Tricks) {
-  return Number(team1Tricks) >= 7 || Number(team2Tricks) >= 7;
-}
-
-export function isMatchFinished(team1Rounds, team2Rounds, roundsTarget) {
-  return Number(team1Rounds) >= Number(roundsTarget) || Number(team2Rounds) >= Number(roundsTarget);
-}
-
-export function createInitialGameState(roundsTarget = 3) {
+export function createInitialPublicState(roundsTarget = 3) {
   return {
     phase: "lobby",
     roundsTarget: Number(roundsTarget) || 3,
+    seats: [],
     handNumber: 0,
     hakimSeat: null,
+    nextHakimSeat: null,
+    currentTurnSeat: null,
     turnSeat: null,
+    turnDeadlineAt: null,
     trumpSuit: "",
-    deck: [],
-    hands: createEmptyHands(),
     currentTrick: [],
     lastTrick: [],
     lastTrickWinnerSeat: null,
+    trickHistory: [],
+    handCounts: { 1: 0, 2: 0, 3: 0, 4: 0 },
     tricks: { team1: 0, team2: 0 },
     rounds: { team1: 0, team2: 0 },
     roundWinnerTeam: "",
+    matchWinnerTeam: "",
     message: ""
   };
 }
 
-export function startFirstHand(state) {
-  const hakimSeat = state.hakimSeat || Math.floor(Math.random() * 4) + 1;
-  return startHand({ ...state, hakimSeat, handNumber: 0 });
-}
-
-export function startNextRound(state) {
-  return startHand({
-    ...state,
-    handNumber: Number(state.handNumber || 0),
-    currentTrick: [],
-    lastTrick: [],
-    lastTrickWinnerSeat: null,
-    tricks: { team1: 0, team2: 0 },
-    roundWinnerTeam: "",
-    message: ""
-  });
-}
-
-function startHand(state) {
-  const deck = shuffleDeck(createDeck());
-  const hakimSeat = state.hakimSeat || 1;
-  const firstDeal = dealFirstFive(deck, hakimSeat);
-
-  return {
-    ...state,
-    phase: "trump_selection",
-    handNumber: Number(state.handNumber || 0) + 1,
-    trumpSuit: "",
-    deck: firstDeal.deck,
-    hands: firstDeal.hands,
-    currentTrick: [],
-    lastTrick: [],
-    lastTrickWinnerSeat: null,
-    tricks: { team1: 0, team2: 0 },
-    turnSeat: hakimSeat,
-    message: "select_trump"
-  };
-}
-
-function createEmptyHands() {
+export function createEmptyHands() {
   return { 1: [], 2: [], 3: [], 4: [] };
 }
 
-function cloneHands(hands = {}) {
+export function cloneHands(hands = {}) {
   return {
     1: [...(hands[1] || hands["1"] || [])],
     2: [...(hands[2] || hands["2"] || [])],
