@@ -1,4 +1,4 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260710-json1";
+import { GAME_TYPES } from "../data/constants.js?v=20260710-json2";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
@@ -6,9 +6,9 @@ import {
   emptyGameForm,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260710-json1";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260710-json1";
-import { icon } from "./icons.js?v=20260710-json1";
+} from "../services/gamesApi.js?v=20260710-json2";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-json2";
+import { icon } from "./icons.js?v=20260710-json2";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {
@@ -428,6 +428,7 @@ function ImportJsonModal(importer) {
             ? `<p class="admin-help-text">Selected file: ${escapeHtml(importer.fileName)}</p>`
             : `<p class="admin-help-text">Supported formats: a direct game object, or an object with <code>game</code> and optional <code>filters</code>.</p>`
         }
+        <p class="admin-help-text">For best results, use the full sample JSON format. Minimal JSON is supported, but full JSON creates a complete game detail page.</p>
         ${importer.status ? `<p class="admin-status-text">${escapeHtml(importer.status)}</p>` : ""}
         ${importer.error ? `<p class="admin-error-text">${escapeHtml(importer.error)}</p>` : ""}
         ${validationErrors.length ? `<div class="admin-import-message is-error">${validationErrors.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}

@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-json1";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-json2";
 import {
   AppShell,
   EmptyState,
@@ -7,21 +7,21 @@ import {
   RandomGameResult,
   RandomGameSetup,
   TopAppBar
-} from "./components/components.js?v=20260710-json1";
-import { AdminRouteScreen } from "./components/admin.js?v=20260710-json1";
+} from "./components/components.js?v=20260710-json2";
+import { AdminRouteScreen } from "./components/admin.js?v=20260710-json2";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260710-json1";
+} from "./components/screens.js?v=20260710-json2";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260710-json1";
+} from "./services/filtering.js?v=20260710-json2";
 import {
   getLastFilters,
   getPreferences,
@@ -29,14 +29,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260710-json1";
+} from "./services/storage.js?v=20260710-json2";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260710-json1";
+} from "./services/i18n.js?v=20260710-json2";
 import {
   assignImportedFiltersToGame,
   checkAdminAccess,
@@ -62,7 +62,7 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260710-json1";
+} from "./services/gamesApi.js?v=20260710-json2";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
