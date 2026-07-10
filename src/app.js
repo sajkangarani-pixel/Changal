@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-guide1";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-guide2";
 import {
   AppShell,
   EmptyState,
@@ -7,21 +7,21 @@ import {
   RandomGameResult,
   RandomGameSetup,
   TopAppBar
-} from "./components/components.js?v=20260710-guide1";
-import { AdminRouteScreen } from "./components/admin.js?v=20260710-guide1";
+} from "./components/components.js?v=20260710-guide2";
+import { AdminRouteScreen } from "./components/admin.js?v=20260710-guide2";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260710-guide1";
+} from "./components/screens.js?v=20260710-guide2";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260710-guide1";
+} from "./services/filtering.js?v=20260710-guide2";
 import {
   getLastFilters,
   getPreferences,
@@ -29,14 +29,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260710-guide1";
+} from "./services/storage.js?v=20260710-guide2";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260710-guide1";
+} from "./services/i18n.js?v=20260710-guide2";
 import {
   assignImportedFiltersToGame,
   checkAdminAccess,
@@ -45,10 +45,12 @@ import {
   duplicatePayload,
   emptyGameForm,
   fetchAdminGames,
+  fetchGameBySlug,
   fetchPublicGames,
   formFromGameRow,
   getCachedPublicGames,
   getCurrentSession,
+  hasUsefulQuickGuide,
   isSlugUnique,
   loginWithEmailPassword,
   logoutAdmin,
@@ -62,7 +64,7 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260710-guide1";
+} from "./services/gamesApi.js?v=20260710-guide2";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -334,6 +336,15 @@ app.addEventListener("click", async (event) => {
       break;
     case "admin-save-imported-game":
       handleAdminImportSave();
+      break;
+    case "admin-update-existing-import":
+      handleAdminImportSave({ updateExisting: true });
+      break;
+    case "admin-import-edit-slug-create":
+      prepareImportSlugEdit();
+      break;
+    case "admin-import-cancel-conflict":
+      closeAdminJsonImport();
       break;
     case "admin-new-game":
       openAdminForm();
@@ -1100,15 +1111,21 @@ async function handleAdminImportFile(file) {
     }
 
     const formErrors = validateGameForm(draft.form);
+    const existingGame = Object.keys(formErrors).length ? null : await findExistingGameForImport(draft.form.slug);
     state.admin.jsonImport = {
       ...state.admin.jsonImport,
       raw,
       form: draft.form,
       filters: draft.filters,
       warnings: draft.warnings,
+      fieldsPresent: draft.fieldsPresent || [],
       formErrors,
+      existingGame,
+      conflictAction: "",
       status: Object.keys(formErrors).length
         ? "JSON loaded. Fix validation errors before saving."
+        : existingGame
+          ? "A game with this slug already exists."
         : "JSON loaded. Review the preview before saving.",
       error: ""
     };
@@ -1118,7 +1135,10 @@ async function handleAdminImportFile(file) {
       form: null,
       filters: [],
       warnings: [],
+      fieldsPresent: [],
       formErrors: {},
+      existingGame: null,
+      conflictAction: "",
       status: "",
       error: error.message || "Could not import this JSON file."
     };
@@ -1141,9 +1161,21 @@ function updateAdminImportField(field, value, target) {
 
   state.admin.jsonImport.form = form;
   state.admin.jsonImport.formErrors = validateGameForm(form);
+  state.admin.jsonImport.existingGame = field === "slug" ? findExistingAdminGameBySlug(form.slug) : state.admin.jsonImport.existingGame;
+  state.admin.jsonImport.conflictAction = "";
   state.admin.jsonImport.status = Object.keys(state.admin.jsonImport.formErrors).length
     ? "Fix validation errors before saving."
-    : "Ready to save.";
+    : state.admin.jsonImport.existingGame
+      ? "A game with this slug already exists."
+      : "Ready to save.";
+  state.admin.jsonImport.error = "";
+  render();
+}
+
+function prepareImportSlugEdit() {
+  if (!state.admin.jsonImport.form) return;
+  state.admin.jsonImport.conflictAction = "edit-slug";
+  state.admin.jsonImport.status = "Edit the slug, then save to create a new game.";
   state.admin.jsonImport.error = "";
   render();
 }
@@ -1168,7 +1200,7 @@ function loadAdminImportIntoForm() {
   render();
 }
 
-async function handleAdminImportSave() {
+async function handleAdminImportSave({ updateExisting = false } = {}) {
   const importer = state.admin.jsonImport;
   if (!importer.form || importer.saving) return;
 
@@ -1188,25 +1220,61 @@ async function handleAdminImportSave() {
   let toastMessage = "";
 
   try {
-    const slugAvailable = await isSlugUnique(importer.form.slug.trim());
-    if (!slugAvailable) {
-      state.admin.jsonImport.formErrors = {
-        ...state.admin.jsonImport.formErrors,
-        slug: "Slug is already used by another game."
-      };
-      state.admin.jsonImport.status = "Fix validation errors before saving.";
+    const existingGame = await findExistingGameForImport(importer.form.slug);
+    if (existingGame && !updateExisting) {
+      state.admin.jsonImport.existingGame = existingGame;
+      state.admin.jsonImport.conflictAction = "";
+      state.admin.jsonImport.status = "A game with this slug already exists.";
       return;
     }
 
-    const saved = await saveGame(payloadFromForm(importer.form));
+    if (updateExisting && !existingGame) {
+      state.admin.jsonImport.existingGame = null;
+      state.admin.jsonImport.status = "No existing game was found for this slug. You can create a new game instead.";
+      return;
+    }
+
+    const saveForm = updateExisting
+      ? mergeImportedFormWithExisting(existingGame, importer.form, importer.fieldsPresent)
+      : importer.form;
+    const saved = await saveGame(payloadFromForm(saveForm), updateExisting ? existingGame.id : "");
     const filterResult = await assignImportedFiltersToGame(saved.id, importer.filters);
+    const verifiedGame = await fetchGameBySlug(saved.slug || importer.form.slug);
+    const importedHasQuickGuide = hasUsefulQuickGuide(saveForm.quick_guide);
+    const verifiedHasQuickGuide = hasUsefulQuickGuide(verifiedGame?.quick_guide);
     await loadAdminGames({ silent: true });
     await refreshPublicGames({ silent: true });
-    state.admin.view = "list";
     state.admin.jsonImport = emptyAdminJsonImportState();
+    state.admin.view = "list";
 
     const filterMessage = summarizeFilterImportResult(filterResult);
-    toastMessage = filterMessage ? `Imported game saved. ${filterMessage}` : "Imported game saved.";
+    const modeMessage = updateExisting ? "Existing game updated." : "Imported game saved.";
+    const verifyMessage = !verifiedGame
+      ? " Saved row could not be re-fetched by slug."
+      : importedHasQuickGuide && !verifiedHasQuickGuide
+        ? " Quick guide was not found after re-fetch."
+        : "";
+    toastMessage = `${modeMessage}${verifyMessage}${filterMessage ? ` ${filterMessage}` : ""}`;
+
+    if (!verifiedGame) {
+      state.admin.view = "list";
+    } else if (importedHasQuickGuide && !verifiedHasQuickGuide) {
+      state.admin.editingId = String(verifiedGame.id);
+      state.admin.form = formFromGameRow(verifiedGame);
+      state.admin.formDirty = false;
+      state.admin.formErrors = {};
+      state.admin.saveStatus = "Saved, but quick guide was not found after re-fetch.";
+      state.admin.view = "form";
+    } else if (verifiedGame.is_active !== false) {
+      location.hash = `#/game/${encodeURIComponent(verifiedGame?.slug || saved.slug || importer.form.slug)}`;
+    } else {
+      state.admin.editingId = String(verifiedGame.id);
+      state.admin.form = formFromGameRow(verifiedGame);
+      state.admin.formDirty = false;
+      state.admin.formErrors = {};
+      state.admin.saveStatus = importedHasQuickGuide && verifiedHasQuickGuide ? "Saved. Quick guide verified." : "Saved.";
+      state.admin.view = "form";
+    }
   } catch (error) {
     state.admin.jsonImport.error = error.message || "Could not save imported game.";
   } finally {
@@ -1236,12 +1304,27 @@ function emptyAdminJsonImportState(patch = {}) {
     form: null,
     filters: [],
     warnings: [],
+    fieldsPresent: [],
     formErrors: {},
+    existingGame: null,
+    conflictAction: "",
     saving: false,
     status: "",
     error: "",
     ...patch
   };
+}
+
+async function findExistingGameForImport(slug) {
+  const normalizedSlug = slugify(slug);
+  if (!normalizedSlug) return null;
+  return fetchGameBySlug(normalizedSlug);
+}
+
+function findExistingAdminGameBySlug(slug) {
+  const normalizedSlug = slugify(slug);
+  if (!normalizedSlug) return null;
+  return state.admin.games.find((game) => String(game.slug || "") === normalizedSlug) || null;
 }
 
 function isJsonFile(file) {
@@ -1270,8 +1353,63 @@ function cloneGameForm(form) {
     rules: [...(form.rules || [])],
     tips: [...(form.tips || [])],
     suitable_for: [...(form.suitable_for || [])],
-    not_suitable_for: [...(form.not_suitable_for || [])]
+    not_suitable_for: [...(form.not_suitable_for || [])],
+    quick_guide: cloneJsonValue(form.quick_guide)
   };
+}
+
+function mergeImportedFormWithExisting(existingGame, importedForm, fieldsPresent = []) {
+  const merged = formFromGameRow(existingGame);
+  const present = new Set(fieldsPresent);
+  const mergeableFields = [
+    "slug",
+    "title",
+    "subtitle",
+    "short_description",
+    "description",
+    "image_url",
+    "image_alt",
+    "category",
+    "equipment",
+    "tags",
+    "min_players",
+    "max_players",
+    "duration_minutes",
+    "difficulty",
+    "energy_level",
+    "game_type",
+    "age_min",
+    "is_featured",
+    "is_active",
+    "sort_order",
+    "setup",
+    "steps",
+    "rules",
+    "tips",
+    "suitable_for",
+    "not_suitable_for",
+    "quick_guide"
+  ];
+
+  mergeableFields.forEach((field) => {
+    if (present.has(field)) {
+      merged[field] = cloneImportFieldValue(importedForm[field]);
+    }
+  });
+
+  return merged;
+}
+
+function cloneImportFieldValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => (item && typeof item === "object" ? { ...item } : item));
+  }
+  return cloneJsonValue(value);
+}
+
+function cloneJsonValue(value) {
+  if (!value || typeof value !== "object") return value || null;
+  return JSON.parse(JSON.stringify(value));
 }
 
 function summarizeFilterImportResult(result) {

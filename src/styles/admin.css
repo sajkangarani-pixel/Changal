@@ -371,6 +371,10 @@
   gap: var(--space-3);
 }
 
+.admin-import-footer-conflict {
+  grid-template-columns: 1fr;
+}
+
 .admin-import-edit-grid,
 .admin-import-preview-grid {
   display: grid;
@@ -573,6 +577,10 @@
   .admin-import-footer {
     grid-template-columns: 1fr auto;
     align-items: end;
+  }
+
+  .admin-import-footer-conflict {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .admin-import-edit-grid,

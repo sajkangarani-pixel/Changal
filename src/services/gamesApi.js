@@ -1,4 +1,4 @@
-import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-guide1";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-guide2";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -281,6 +281,15 @@ export async function isSlugUnique(slug, currentId = "") {
   return String(data[0].id) === String(currentId);
 }
 
+export async function fetchGameBySlug(slug) {
+  const normalizedSlug = slugify(slug);
+  if (!normalizedSlug) return null;
+
+  const { data, error } = await supabase.from("games").select("*").eq("slug", normalizedSlug).limit(1);
+  if (error) throw new Error(error.message);
+  return data?.[0] || null;
+}
+
 export async function saveGame(payload, id = "") {
   const safePayload = normalizeGamePayload(payload);
 
@@ -482,6 +491,7 @@ export function createGameImportDraft(source) {
   }
 
   const normalized = normalizeImportedGameKeys(root.game);
+  const fieldsPresent = Object.keys(normalized);
   const title = stringForImportForm(normalized.title);
   const importedImageUrl = stringForImportForm(normalized.image_url);
   const warnings = [];
@@ -526,7 +536,7 @@ export function createGameImportDraft(source) {
     warnings.push("Filter assignments will be matched after saving. Missing groups or options will be skipped.");
   }
 
-  return { form, filters, warnings, error: "" };
+  return { form, filters, warnings, fieldsPresent, error: "" };
 }
 
 export function toSupabaseGamePayload(form) {
@@ -574,6 +584,9 @@ export function validateGameForm(form) {
   if (!category) errors.category = "Choose no-equipment, needs-equipment, or online.";
   if (form.difficulty && !difficulty) errors.difficulty = "Choose easy, medium, hard, or leave it empty.";
   if (form.energy_level && !energyLevel) errors.energy_level = "Choose low, medium, high, or leave it empty.";
+  if (!quickGuideInputIsValid(form.quick_guide)) {
+    errors.quick_guide = "Quick guide must be empty or a valid JSON object.";
+  }
   if (minPlayers < 1) errors.min_players = "Minimum players must be at least 1.";
   if (maxPlayers !== null && maxPlayers < minPlayers) {
     errors.max_players = "Maximum players must be empty or greater than minimum players.";
@@ -731,9 +744,7 @@ export function normalizeGamePayload(payload = {}) {
     setup: nullableString(payload.setup)
   };
 
-  if (hasUsefulQuickGuide(quickGuide)) {
-    normalized.quick_guide = quickGuide;
-  }
+  normalized.quick_guide = hasUsefulQuickGuide(quickGuide) ? quickGuide : null;
 
   return normalized;
 }
@@ -1024,6 +1035,14 @@ function quickGuideValueHasContent(value) {
 
 function quickGuideCamelKey(field) {
   return field.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase());
+}
+
+function quickGuideInputIsValid(value) {
+  if (value === "" || value === null || value === undefined) return true;
+  if (typeof value === "object" && !Array.isArray(value)) return true;
+  if (typeof value !== "string") return false;
+  const parsed = parseJson(value);
+  return Boolean(parsed) && typeof parsed === "object" && !Array.isArray(parsed);
 }
 
 function unwrapImportSource(source) {

@@ -1,4 +1,4 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260710-guide1";
+import { GAME_TYPES } from "../data/constants.js?v=20260710-guide2";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
@@ -7,9 +7,9 @@ import {
   hasUsefulQuickGuide,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260710-guide1";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260710-guide1";
-import { icon } from "./icons.js?v=20260710-guide1";
+} from "../services/gamesApi.js?v=20260710-guide2";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-guide2";
+import { icon } from "./icons.js?v=20260710-guide2";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {
@@ -371,6 +371,24 @@ function GameForm({ admin, categories }) {
           ${ListBuilder({ label: "Suitable for builder", name: "suitable_for", items: form.suitable_for, multiline: true })}
           ${ListBuilder({ label: "Not suitable for builder", name: "not_suitable_for", items: form.not_suitable_for, multiline: true })}
         </div>
+
+        <div class="admin-card admin-form-card">
+          <div class="admin-section-heading">
+            <div>
+              <p>Optional experienced-player reference</p>
+              <h2>Quick guide</h2>
+            </div>
+          </div>
+          ${TextArea({
+            label: "Quick guide JSON",
+            name: "quick_guide",
+            value: quickGuideTextareaValue(form.quick_guide),
+            rows: 10,
+            wide: true,
+            error: errors.quick_guide
+          })}
+          <p class="admin-help-text">Leave empty to save null. Use a JSON object with keys like summary, objective, quick_setup, flow, key_rules, scoring, special_cards_or_roles, edge_cases, common_mistakes, and agreement_before_play.</p>
+        </div>
       </div>
 
       <aside class="admin-form-side">
@@ -403,6 +421,7 @@ function ImportJsonModal(importer) {
   const form = importer.form;
   const formErrors = importer.formErrors || {};
   const hasForm = Boolean(form);
+  const hasExistingGame = Boolean(importer.existingGame);
   const validationErrors = Object.entries(formErrors).map(([field, message]) => `${field}: ${message}`);
 
   return `
@@ -432,6 +451,11 @@ function ImportJsonModal(importer) {
         <p class="admin-help-text">For best results, use the full sample JSON format. Minimal JSON is supported, but full JSON creates a complete game detail page.</p>
         ${importer.status ? `<p class="admin-status-text">${escapeHtml(importer.status)}</p>` : ""}
         ${importer.error ? `<p class="admin-error-text">${escapeHtml(importer.error)}</p>` : ""}
+        ${
+          hasExistingGame
+            ? `<div class="admin-import-message"><span>A game with this slug already exists.</span><span>Existing game found. You can update it.</span></div>`
+            : ""
+        }
         ${validationErrors.length ? `<div class="admin-import-message is-error">${validationErrors.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
         ${
           importer.warnings?.length
@@ -453,15 +477,34 @@ function ImportJsonModal(importer) {
             : `<div class="admin-state-card"><p>Choose a JSON file to preview the game before saving it.</p></div>`
         }
 
-        <div class="admin-import-footer">
-          <button class="secondary-button" type="button" data-action="admin-load-import-form" ${hasForm ? "" : "disabled"}>Load into full form</button>
-          <button class="primary-button" type="button" data-action="admin-save-imported-game" ${hasForm && !importer.saving ? "" : "disabled"}>
-            ${importer.saving ? `<span class="admin-spinner"></span>` : icon("check", 17)}
-            ${importer.saving ? "Saving..." : "Save imported game"}
-          </button>
-        </div>
+        ${ImportFooter({ hasForm, hasExistingGame, saving: importer.saving })}
       </div>
     </section>
+  `;
+}
+
+function ImportFooter({ hasForm, hasExistingGame, saving }) {
+  if (hasExistingGame) {
+    return `
+      <div class="admin-import-footer admin-import-footer-conflict">
+        <button class="primary-button" type="button" data-action="admin-update-existing-import" ${hasForm && !saving ? "" : "disabled"}>
+          ${saving ? `<span class="admin-spinner"></span>` : icon("check", 17)}
+          ${saving ? "Updating..." : "Update existing game"}
+        </button>
+        <button class="secondary-button" type="button" data-action="admin-import-edit-slug-create" ${hasForm && !saving ? "" : "disabled"}>Edit slug and create new</button>
+        <button class="secondary-button" type="button" data-action="admin-import-cancel-conflict" ${saving ? "disabled" : ""}>Cancel</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="admin-import-footer">
+      <button class="secondary-button" type="button" data-action="admin-load-import-form" ${hasForm ? "" : "disabled"}>Load into full form</button>
+      <button class="primary-button" type="button" data-action="admin-save-imported-game" ${hasForm && !saving ? "" : "disabled"}>
+        ${saving ? `<span class="admin-spinner"></span>` : icon("check", 17)}
+        ${saving ? "Saving..." : "Save imported game"}
+      </button>
+    </div>
   `;
 }
 
@@ -544,7 +587,7 @@ function NumberField({ label, name, value, min = "", error = "", action = "admin
   `;
 }
 
-function TextArea({ label, name, value, rows = 3, wide = false }) {
+function TextArea({ label, name, value, rows = 3, wide = false, error = "" }) {
   return `
     <label class="admin-field ${wide ? "is-wide" : ""}">
       <span>${escapeHtml(label)}</span>
@@ -554,8 +597,15 @@ function TextArea({ label, name, value, rows = 3, wide = false }) {
         data-action="admin-form-field"
         data-field="${escapeAttr(name)}"
       >${escapeHtml(value)}</textarea>
+      ${error ? `<small class="admin-error-text">${escapeHtml(error)}</small>` : ""}
     </label>
   `;
+}
+
+function quickGuideTextareaValue(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value, null, 2);
 }
 
 function SelectField({ label, name, value, action, field = "", options, error = "" }) {
