@@ -1,4 +1,4 @@
-import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-guide2";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-steps1";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -1174,8 +1174,14 @@ function parseJson(value) {
 }
 
 function formatStepForPublic(step, index) {
-  if (step.title && step.description) return `${step.title}: ${step.description}`;
-  return step.title || step.description || `Step ${index + 1}`;
+  if (step && typeof step === "object") {
+    const title = String(step.title || "").trim();
+    const description = String(step.description || "").trim();
+    if (title || description) return { title, description };
+  }
+
+  const text = String(step || "").trim();
+  return text || `Step ${index + 1}`;
 }
 
 function ageGroupsFromMinimum(ageMin) {

@@ -7,7 +7,7 @@ import {
   DURATION_RANGES,
   ACTIVITY_LEVELS,
   ENVIRONMENTS
-} from "../data/constants.js?v=20260709-admin5";
+} from "../data/constants.js?v=20260710-steps1";
 import {
   countAdvancedFilters,
   formatDuration,
@@ -16,9 +16,9 @@ import {
   getGameTypeLabel,
   getRequirementLabel,
   summarizeFilters
-} from "../services/filtering.js?v=20260709-admin5";
-import { renderArtwork } from "./artwork.js?v=20260709-admin5";
-import { icon } from "./icons.js?v=20260709-admin5";
+} from "../services/filtering.js?v=20260710-steps1";
+import { renderArtwork } from "./artwork.js?v=20260710-steps1";
+import { icon } from "./icons.js?v=20260710-steps1";
 
 export const navItems = [
   { id: "discover", label: "Discover", icon: "discover", href: "#/" },
@@ -560,16 +560,44 @@ export function QuickInfoRow(game) {
   `;
 }
 
-export function InstructionList({ title, items, ordered = false }) {
+export function InstructionList({ title, items = [], ordered = false }) {
   const tag = ordered ? "ol" : "ul";
+  const sourceItems = Array.isArray(items) ? items : [items];
+  const normalizedItems = sourceItems.map(normalizeInstructionItem).filter((item) => item.title || item.description);
+  if (!normalizedItems.length) return "";
+
   return `
     <section class="detail-section">
       <h2>${escapeHtml(title)}</h2>
       <${tag} class="instruction-list">
-        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        ${normalizedItems.map(InstructionListItem).join("")}
       </${tag}>
     </section>
   `;
+}
+
+function InstructionListItem(item) {
+  const hasTitle = Boolean(item.title);
+  return `
+    <li class="instruction-step ${hasTitle ? "has-step-title" : ""}">
+      ${item.title ? `<h3 class="instruction-step-title">${escapeHtml(item.title)}</h3>` : ""}
+      ${item.description ? `<p class="instruction-step-description">${escapeHtml(item.description)}</p>` : ""}
+    </li>
+  `;
+}
+
+function normalizeInstructionItem(item) {
+  if (item && typeof item === "object") {
+    return {
+      title: String(item.title || item.heading || item.name || "").trim(),
+      description: String(item.description || item.body || item.text || item.value || "").trim()
+    };
+  }
+
+  return {
+    title: "",
+    description: String(item || "").trim()
+  };
 }
 
 export function VariationCards(variations = []) {

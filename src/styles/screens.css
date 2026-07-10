@@ -195,15 +195,36 @@
   color: var(--color-text-secondary);
 }
 
+.instruction-step {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.instruction-step-title {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--label-size);
+  font-weight: 600;
+  line-height: var(--label-line);
+  letter-spacing: 0;
+}
+
+.instruction-step-description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+}
+
 ol.instruction-list li {
-  padding-left: 52px;
+  padding-inline-start: 52px;
   counter-increment: item;
 }
 
 ol.instruction-list li::before {
   position: absolute;
   top: 10px;
-  left: var(--space-3);
+  inset-inline-start: var(--space-3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -241,6 +262,10 @@ ol.instruction-list li::before {
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-6);
   background: var(--color-surface-primary);
+}
+
+.variation-card h3 {
+  color: var(--color-primary);
 }
 
 .profile-hero {
