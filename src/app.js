@@ -1,4 +1,4 @@
-import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-json2";
+import { DEFAULT_ADVANCED_FILTERS } from "./data/constants.js?v=20260710-guide1";
 import {
   AppShell,
   EmptyState,
@@ -7,21 +7,21 @@ import {
   RandomGameResult,
   RandomGameSetup,
   TopAppBar
-} from "./components/components.js?v=20260710-json2";
-import { AdminRouteScreen } from "./components/admin.js?v=20260710-json2";
+} from "./components/components.js?v=20260710-guide1";
+import { AdminRouteScreen } from "./components/admin.js?v=20260710-guide1";
 import {
   DetailScreen,
   DiscoverScreen,
   ExploreScreen,
   ProfileScreen,
   SavedScreen
-} from "./components/screens.js?v=20260710-json2";
+} from "./components/screens.js?v=20260710-guide1";
 import {
   filterGames,
   normalizeFilters,
   pickRandomGame,
   sortGames
-} from "./services/filtering.js?v=20260710-json2";
+} from "./services/filtering.js?v=20260710-guide1";
 import {
   getLastFilters,
   getPreferences,
@@ -29,14 +29,14 @@ import {
   saveLastFilters,
   savePreferences,
   toggleSavedGame
-} from "./services/storage.js?v=20260710-json2";
+} from "./services/storage.js?v=20260710-guide1";
 import {
   applyDocumentLanguage,
   getLanguage,
   localizeGames,
   translateDom,
   translateText
-} from "./services/i18n.js?v=20260710-json2";
+} from "./services/i18n.js?v=20260710-guide1";
 import {
   assignImportedFiltersToGame,
   checkAdminAccess,
@@ -62,7 +62,7 @@ import {
   updateGameSortOrder,
   uploadGameImage,
   validateGameForm
-} from "./services/gamesApi.js?v=20260710-json2";
+} from "./services/gamesApi.js?v=20260710-guide1";
 
 const app = document.querySelector("#app");
 const cachedPublicGames = getCachedPublicGames();
@@ -89,6 +89,9 @@ const state = {
   saved: {
     search: "",
     requirement: "all"
+  },
+  detail: {
+    guideMode: "full"
   },
   advancedFilters: normalizeFilters(getLastFilters(DEFAULT_ADVANCED_FILTERS)),
   filterSheet: {
@@ -173,6 +176,7 @@ window.addEventListener("hashchange", () => {
   const nextKey = routeKey(nextRoute);
   if (nextKey !== lastRouteKey) {
     closeTransientOverlays();
+    state.detail.guideMode = "full";
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }
   lastRouteKey = nextKey;
@@ -211,7 +215,7 @@ app.addEventListener("click", async (event) => {
   const isFileInputAction = actionTarget instanceof HTMLInputElement && actionTarget.type === "file";
 
   if (
-    ["toggle-save", "select-requirement", "toggle-quick-filter"].includes(action) ||
+    ["toggle-save", "select-requirement", "toggle-quick-filter", "detail-guide-mode"].includes(action) ||
     (action.startsWith("admin-") && !isFileInputAction)
   ) {
     event.preventDefault();
@@ -265,6 +269,10 @@ app.addEventListener("click", async (event) => {
     case "remove-advanced-filter":
       state.advancedFilters[key] = state.advancedFilters[key].filter((item) => item !== value);
       saveLastFilters(state.advancedFilters);
+      render();
+      break;
+    case "detail-guide-mode":
+      state.detail.guideMode = value === "quick" ? "quick" : "full";
       render();
       break;
     case "toggle-save":
@@ -521,7 +529,8 @@ function render() {
       slug: route.params.slug,
       games: displayGames,
       savedIds,
-      onlineAvailable: state.onlineAvailable
+      onlineAvailable: state.onlineAvailable,
+      guideMode: state.detail.guideMode
     });
   } else {
     activeNav = "discover";

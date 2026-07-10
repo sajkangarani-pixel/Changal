@@ -1,14 +1,15 @@
-import { GAME_TYPES } from "../data/constants.js?v=20260710-json2";
+import { GAME_TYPES } from "../data/constants.js?v=20260710-guide1";
 import {
   ADMIN_CATEGORY_OPTIONS,
   ADMIN_DIFFICULTY_OPTIONS,
   ADMIN_ENERGY_LEVEL_OPTIONS,
   emptyGameForm,
+  hasUsefulQuickGuide,
   normalizeGameRow,
   payloadFromForm
-} from "../services/gamesApi.js?v=20260710-json2";
-import { escapeAttr, escapeHtml } from "./components.js?v=20260710-json2";
-import { icon } from "./icons.js?v=20260710-json2";
+} from "../services/gamesApi.js?v=20260710-guide1";
+import { escapeAttr, escapeHtml } from "./components.js?v=20260710-guide1";
+import { icon } from "./icons.js?v=20260710-guide1";
 
 export function AdminRouteScreen({ admin }) {
   if (admin.authLoading) {
@@ -469,6 +470,7 @@ function ImportPreview({ form, filters }) {
     ? `<img src="${escapeAttr(form.image_url)}" alt="${escapeAttr(form.image_alt || form.title)}" />`
     : `<div class="admin-preview-art">${icon("dice", 34)}</div>`;
   const filterCount = filters.reduce((total, filter) => total + filter.options.length, 0);
+  const quickGuideItem = hasUsefulQuickGuide(form.quick_guide) ? PreviewItem("Quick guide", "available") : "";
 
   return `
     <section class="admin-import-preview">
@@ -488,6 +490,7 @@ function ImportPreview({ form, filters }) {
           ${PreviewItem("Energy", form.energy_level || "Not set")}
           ${PreviewItem("Steps", form.steps.length)}
           ${PreviewItem("Rules", form.rules.length)}
+          ${quickGuideItem}
           ${PreviewItem("Filters", filterCount)}
         </div>
       </div>

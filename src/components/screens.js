@@ -6,8 +6,8 @@ import {
   GAME_TYPES,
   PLAYER_RANGES,
   PLAY_STYLES
-} from "../data/constants.js?v=20260709-admin5";
-import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260709-admin5";
+} from "../data/constants.js?v=20260710-guide1";
+import { LANGUAGES, getLanguage } from "../services/i18n.js?v=20260710-guide1";
 import {
   ActiveFilterSummary,
   DetailHero,
@@ -27,8 +27,8 @@ import {
   advancedFilterCountLabel,
   escapeAttr,
   escapeHtml
-} from "./components.js?v=20260709-admin5";
-import { icon } from "./icons.js?v=20260709-admin5";
+} from "./components.js?v=20260710-guide1";
+import { icon } from "./icons.js?v=20260710-guide1";
 import {
   filterGames,
   formatEquipment,
@@ -39,7 +39,7 @@ import {
   getRelatedGames,
   getRequirementLabel,
   sortGames
-} from "../services/filtering.js?v=20260709-admin5";
+} from "../services/filtering.js?v=20260710-guide1";
 
 export function DiscoverScreen({ state, games, savedIds, preferences }) {
   const criteria = {
@@ -268,7 +268,7 @@ export function ProfileScreen({ preferences, savedIds }) {
   `;
 }
 
-export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
+export function DetailScreen({ slug, games, savedIds, onlineAvailable, guideMode = "full" }) {
   const gameKey = safeDecode(slug);
   const game = games.find(
     (candidate) => String(candidate.slug) === gameKey || String(candidate.id) === gameKey
@@ -289,6 +289,9 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
 
   const related = getRelatedGames(game, games);
   const saved = savedIds.has(game.id);
+  const hasQuickGuide = hasUsefulQuickGuide(game.quickGuide);
+  const activeGuideMode = hasQuickGuide && guideMode === "quick" ? "quick" : "full";
+  const guide = renderGameGuide({ game, mode: activeGuideMode, showToggle: hasQuickGuide });
   const equipmentList =
     game.requirementCategory === "no-equipment"
       ? `<p class="equipment-none">No equipment needed.</p>`
@@ -311,15 +314,7 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
         <h2>Required Equipment</h2>
         ${equipmentList}
       </section>
-      ${InstructionList({ title: "Setup", items: game.setupInstructions })}
-      ${InstructionList({ title: "How to Play", items: game.playInstructions, ordered: true })}
-      ${InstructionList({ title: "Rules", items: game.rules })}
-      ${
-        game.winCondition
-          ? `<section class="detail-section"><h2>Winning</h2><p>${escapeHtml(game.winCondition)}</p></section>`
-          : ""
-      }
-      ${game.tips?.length ? InstructionList({ title: "Tips", items: game.tips }) : ""}
+      ${guide}
       ${VariationCards(game.variations)}
       <section class="detail-section">
         <h2>Similar Games</h2>
@@ -327,6 +322,96 @@ export function DetailScreen({ slug, games, savedIds, onlineAvailable }) {
       </section>
     </section>
   `;
+}
+
+function renderGameGuide({ game, mode, showToggle }) {
+  const toggle = showToggle ? GuideModeToggle(mode) : "";
+  const body = mode === "quick" ? QuickGuideSections(game.quickGuide) : FullGuideSections(game);
+  return `${toggle}${body}`;
+}
+
+function GuideModeToggle(mode) {
+  const options = [
+    { id: "full", label: "کامل توضیح بده" },
+    { id: "quick", label: "بلدم، خلاصه بگو" }
+  ];
+
+  return `
+    <div class="guide-mode-toggle" role="group" aria-label="Guide mode">
+      ${options
+        .map((option) => {
+          const selected = mode === option.id;
+          return `
+            <button
+              class="guide-mode-option ${selected ? "is-selected" : ""}"
+              type="button"
+              data-action="detail-guide-mode"
+              data-value="${escapeAttr(option.id)}"
+              aria-pressed="${selected}"
+            >
+              ${escapeHtml(option.label)}
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function FullGuideSections(game) {
+  return `
+    ${InstructionList({ title: "Setup", items: game.setupInstructions })}
+    ${InstructionList({ title: "How to Play", items: game.playInstructions, ordered: true })}
+    ${InstructionList({ title: "Rules", items: game.rules })}
+    ${
+      game.winCondition
+        ? `<section class="detail-section"><h2>Winning</h2><p>${escapeHtml(game.winCondition)}</p></section>`
+        : ""
+    }
+    ${game.tips?.length ? InstructionList({ title: "Tips", items: game.tips }) : ""}
+  `;
+}
+
+const QUICK_GUIDE_SECTIONS = [
+  { key: "summary", title: "خلاصه" },
+  { key: "objective", title: "هدف بازی" },
+  { key: "quick_setup", title: "آماده‌سازی سریع" },
+  { key: "flow", title: "روند بازی", ordered: true },
+  { key: "key_rules", title: "قوانین کلیدی" },
+  { key: "scoring", title: "امتیازدهی" },
+  { key: "special_cards_or_roles", title: "کارت‌ها یا نقش‌های ویژه" },
+  { key: "edge_cases", title: "حالت‌های خاص" },
+  { key: "common_mistakes", title: "اشتباه‌های رایج" },
+  { key: "agreement_before_play", title: "قبل از شروع توافق کنید" }
+];
+
+function QuickGuideSections(quickGuide) {
+  return QUICK_GUIDE_SECTIONS.map((section) => QuickGuideSection({ ...section, content: quickGuide?.[section.key] }))
+    .filter(Boolean)
+    .join("");
+}
+
+function QuickGuideSection({ title, content, ordered = false }) {
+  if (!quickGuideValueHasContent(content)) return "";
+  if (Array.isArray(content)) {
+    return InstructionList({ title, items: content, ordered });
+  }
+
+  return `
+    <section class="detail-section quick-guide-section">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(content)}</p>
+    </section>
+  `;
+}
+
+function hasUsefulQuickGuide(quickGuide) {
+  return QUICK_GUIDE_SECTIONS.some((section) => quickGuideValueHasContent(quickGuide?.[section.key]));
+}
+
+function quickGuideValueHasContent(value) {
+  if (Array.isArray(value)) return value.some((item) => String(item || "").trim());
+  return Boolean(String(value || "").trim());
 }
 
 function PreferenceSection({ title, key, type, selected, options }) {

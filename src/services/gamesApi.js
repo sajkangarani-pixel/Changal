@@ -1,4 +1,4 @@
-import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-json2";
+import { SUPABASE_URL, supabase } from "./supabaseClient.js?v=20260710-guide1";
 
 const PUBLIC_GAME_CACHE_KEY = "changal.publicGames.v1";
 export const IMAGE_MAX_SIZE_BYTES = 2 * 1024 * 1024;
@@ -97,6 +97,42 @@ export const GAME_IMPORT_SAMPLE = {
       "موقعیت‌هایی که کاغذ و خودکار در دسترس نیست",
       "جمع‌های خیلی شلوغ بدون مدیریت زمان"
     ],
+    quick_guide: {
+      summary: "یک حرف انتخاب می‌شود و همه باید برای چند دسته، جواب‌هایی پیدا کنند که با همان حرف شروع شوند.",
+      objective: "در هر دور، با جواب‌های درست، خاص و غیرتکراری امتیاز بیشتری بگیرید.",
+      quick_setup: "کاغذ و خودکار بدهید، دسته‌ها را بنویسید، یک حرف و یک زمان محدود انتخاب کنید.",
+      flow: [
+        "حرف دور را اعلام کنید.",
+        "همه هم‌زمان برای هر دسته جواب می‌نویسند.",
+        "اولین نفر که جدول را کامل کرد پایان دور را اعلام می‌کند.",
+        "جواب‌ها خوانده و امتیازها ثبت می‌شوند."
+      ],
+      key_rules: [
+        "جواب باید با حرف انتخاب‌شده شروع شود.",
+        "جواب باید با دسته هم‌خوانی داشته باشد.",
+        "جواب تکراری امتیاز کمتری می‌گیرد."
+      ],
+      scoring: [
+        "جواب درست و غیرتکراری: امتیاز کامل.",
+        "جواب درست اما تکراری: امتیاز کمتر.",
+        "جواب نامعتبر یا خالی: بدون امتیاز."
+      ],
+      special_cards_or_roles: [],
+      edge_cases: [
+        "قبل از بازی مشخص کنید اسم‌های خارجی، برندها یا جواب‌های عامیانه قابل قبول هستند یا نه.",
+        "اگر روی درستی جواب اختلاف شد، رأی جمع تصمیم نهایی است."
+      ],
+      common_mistakes: [
+        "دسته‌ها را بیش از حد زیاد نکنید.",
+        "قبل از شروع، روش امتیازدهی را مبهم نگذارید."
+      ],
+      agreement_before_play: [
+        "مدت هر دور",
+        "دسته‌های مجاز",
+        "سیستم امتیازدهی",
+        "قانون جواب‌های تکراری یا بحث‌برانگیز"
+      ]
+    }
   },
   filters: [
     {
@@ -136,8 +172,21 @@ const IMPORT_KEY_ALIASES = {
   isActive: "is_active",
   sortOrder: "sort_order",
   suitableFor: "suitable_for",
-  notSuitableFor: "not_suitable_for"
+  notSuitableFor: "not_suitable_for",
+  quickGuide: "quick_guide"
 };
+const QUICK_GUIDE_FIELDS = [
+  "summary",
+  "objective",
+  "quick_setup",
+  "flow",
+  "key_rules",
+  "scoring",
+  "special_cards_or_roles",
+  "edge_cases",
+  "common_mistakes",
+  "agreement_before_play"
+];
 
 export function getCachedPublicGames() {
   try {
@@ -374,7 +423,8 @@ export function emptyGameForm(nextSortOrder = 10) {
     rules: [""],
     tips: [""],
     suitable_for: [""],
-    not_suitable_for: [""]
+    not_suitable_for: [""],
+    quick_guide: null
   };
 }
 
@@ -407,7 +457,8 @@ export function formFromGameRow(row = {}) {
     rules: listForForm(row.rules),
     tips: listForForm(row.tips),
     suitable_for: listForForm(row.suitable_for),
-    not_suitable_for: listForForm(row.not_suitable_for)
+    not_suitable_for: listForForm(row.not_suitable_for),
+    quick_guide: normalizeQuickGuide(row.quick_guide)
   };
 }
 
@@ -466,8 +517,10 @@ export function createGameImportDraft(source) {
     rules: normalizeStringArray(normalized.rules),
     tips: normalizeStringArray(normalized.tips),
     suitable_for: normalizeStringArray(normalized.suitable_for),
-    not_suitable_for: normalizeStringArray(normalized.not_suitable_for)
+    not_suitable_for: normalizeStringArray(normalized.not_suitable_for),
+    quick_guide: normalizeQuickGuide(normalized.quick_guide)
   };
+  if (!hasUsefulQuickGuide(form.quick_guide)) form.quick_guide = null;
   const filters = normalizeImportedFilters(root.filters);
   if (filters.length) {
     warnings.push("Filter assignments will be matched after saving. Missing groups or options will be skipped.");
@@ -503,7 +556,8 @@ export function toSupabaseGamePayload(form) {
     rules: cleanStringList(form.rules),
     tips: cleanStringList(form.tips),
     suitable_for: cleanStringList(form.suitable_for),
-    not_suitable_for: cleanStringList(form.not_suitable_for)
+    not_suitable_for: cleanStringList(form.not_suitable_for),
+    quick_guide: normalizeQuickGuide(form.quick_guide)
   });
 }
 
@@ -579,6 +633,7 @@ export function fromSupabaseGame(row = {}) {
     rules: normalizeStringArray(row.rules),
     winCondition: "",
     tips: normalizeStringArray(row.tips),
+    quickGuide: normalizeQuickGuide(row.quick_guide),
     suitableFor: normalizeStringArray(row.suitable_for),
     notSuitableFor: normalizeStringArray(row.not_suitable_for),
     variations: [],
@@ -653,9 +708,11 @@ export function normalizeGamePayload(payload = {}) {
   const minPlayers = Math.max(1, toNumber(payload.min_players, 1));
   const rawMaxPlayers = nullableNumber(payload.max_players);
   const maxPlayers = rawMaxPlayers === null || rawMaxPlayers >= minPlayers ? rawMaxPlayers : null;
+  const { quick_guide: rawQuickGuide, quickGuide: rawQuickGuideCamel, ...restPayload } = payload;
+  const quickGuide = normalizeQuickGuide(rawQuickGuide ?? rawQuickGuideCamel);
 
-  return {
-    ...payload,
+  const normalized = {
+    ...restPayload,
     slug: requiredString(payload.slug),
     title: requiredString(payload.title),
     subtitle: nullableString(payload.subtitle),
@@ -673,6 +730,12 @@ export function normalizeGamePayload(payload = {}) {
     sort_order: nullableNumber(payload.sort_order),
     setup: nullableString(payload.setup)
   };
+
+  if (hasUsefulQuickGuide(quickGuide)) {
+    normalized.quick_guide = quickGuide;
+  }
+
+  return normalized;
 }
 
 export function normalizeImportedFilters(value = []) {
@@ -689,6 +752,27 @@ export function normalizeImportedFilters(value = []) {
       return group && options.length ? { group, options } : null;
     })
     .filter(Boolean);
+}
+
+export function normalizeQuickGuide(value) {
+  const parsed = typeof value === "string" ? parseJson(value) : value;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+  const guide = {};
+  QUICK_GUIDE_FIELDS.forEach((field) => {
+    const raw = parsed[field] ?? parsed[quickGuideCamelKey(field)];
+    const normalized = normalizeQuickGuideField(raw);
+    if (quickGuideValueHasContent(normalized)) {
+      guide[field] = normalized;
+    }
+  });
+
+  return quickGuideObjectHasContent(guide) ? guide : null;
+}
+
+export function hasUsefulQuickGuide(value) {
+  const guide = normalizeQuickGuide(value);
+  return quickGuideObjectHasContent(guide);
 }
 
 export function normalizeCategoryForDatabase(value) {
@@ -920,6 +1004,26 @@ function normalizeEnumValue(value) {
     .trim()
     .toLowerCase()
     .replace(/[_\s]+/g, "-");
+}
+
+function normalizeQuickGuideField(value) {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return normalizeStringArray(value);
+  if (typeof value === "object") return normalizeStringArray(Object.values(value));
+  return String(value).trim();
+}
+
+function quickGuideObjectHasContent(guide) {
+  return Boolean(guide) && QUICK_GUIDE_FIELDS.some((field) => quickGuideValueHasContent(guide[field]));
+}
+
+function quickGuideValueHasContent(value) {
+  if (Array.isArray(value)) return value.some((item) => String(item || "").trim());
+  return Boolean(String(value || "").trim());
+}
+
+function quickGuideCamelKey(field) {
+  return field.replace(/_([a-z])/g, (_match, letter) => letter.toUpperCase());
 }
 
 function unwrapImportSource(source) {
