@@ -32,3 +32,8 @@ Thumbs.db
 .vite/
 *.zip
 reference/
+
+# Large reference files
+*.zip
+reference/
+Online-hokm-game-main/
